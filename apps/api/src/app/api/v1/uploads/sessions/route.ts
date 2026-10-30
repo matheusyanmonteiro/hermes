@@ -3,7 +3,7 @@ import { prisma } from "@hermes/database";
 import { PERMISSIONS } from "@hermes/permissions";
 import { authenticate, requirePermission } from "@/lib/auth";
 import { requireActiveCampaign } from "@/lib/campaign";
-import { encryptSecret } from "@/lib/crypto";
+import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { ApiError } from "@/lib/errors";
 import { driveFetch } from "@/lib/google-drive";
 import { apiRoute, correlationId, json, parseJson } from "@/lib/http";
@@ -20,7 +20,17 @@ export const POST = apiRoute(async (request) => {
     where: { userId_idempotencyKey: { userId: auth.user.id, idempotencyKey } },
     include: { transfers: true },
   });
-  if (existing) return json({ batchId: existing.id, transfers: existing.transfers.map(({ resumableSessionEncrypted: _secret, ...transfer }) => transfer), idempotentReplay: true });
+  if (existing) {
+    const sessions = existing.transfers
+      .filter((transfer) => transfer.resumableSessionEncrypted)
+      .map((transfer) => ({
+        transferId: transfer.id,
+        clientId: transfer.clientFileId,
+        sessionUrl: decryptSecret(transfer.resumableSessionEncrypted!),
+        chunkSizeBytes: Number(process.env.UPLOAD_CHUNK_SIZE_BYTES ?? 8_388_608),
+      }));
+    return json({ batchId: existing.id, sessions, idempotentReplay: true });
+  }
 
   const [account, folder] = await Promise.all([
     prisma.driveAccount.findUnique({ where: { id: input.accountId } }),

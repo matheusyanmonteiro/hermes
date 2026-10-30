@@ -75,6 +75,10 @@ export async function authenticate(request: Request): Promise<AuthContext> {
   });
 
   if (!user || user.deletedAt) throw new ApiError(401, "USER_NOT_FOUND", "Usuário não cadastrado no portal");
+  if (user.status === "INVITED" && process.env.AUTH_MODE === "supabase") {
+    user.status = "ACTIVE";
+    await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE", lastLoginAt: new Date() } });
+  }
   if (user.status !== "ACTIVE") throw new ApiError(403, "USER_INACTIVE", "Este usuário não está ativo");
 
   const roles = user.roles.map(({ role }) => role.code);

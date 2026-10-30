@@ -1,6 +1,5 @@
 import { downloadEventSchema, uuidSchema, type TransferStatus } from "@hermes/contracts";
 import { prisma } from "@hermes/database";
-import { PERMISSIONS } from "@hermes/permissions";
 import { authenticate } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { apiRoute, correlationId, json, parseJson } from "@/lib/http";
@@ -14,8 +13,7 @@ export const POST = apiRoute(async (request, context) => {
   const transfer = await prisma.transfer.findUnique({ where: { id: transferId }, include: { batch: true } });
   if (!transfer || transfer.batch.type !== "DOWNLOAD") throw new ApiError(404, "TRANSFER_NOT_FOUND", "Transferência não encontrada");
 
-  const canViewAll = auth.permissions.includes(PERMISSIONS.TRANSFERS_VIEW_ALL);
-  if (transfer.batch.userId !== auth.user.id && !canViewAll) {
+  if (transfer.batch.userId !== auth.user.id) {
     throw new ApiError(403, "PERMISSION_DENIED", "Esta transferência pertence a outro usuário");
   }
 
