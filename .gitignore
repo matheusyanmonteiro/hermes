@@ -17,6 +17,7 @@ coverage/
 Thumbs.db
 *.log
 *.tsbuildinfo
+**/next-env.d.ts
 .idea/
 .vscode/
 

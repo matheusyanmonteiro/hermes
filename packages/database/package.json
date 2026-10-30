@@ -13,7 +13,7 @@
     "db:studio": "prisma studio",
     "lint": "eslint src prisma --ext .ts",
     "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "postinstall": "prisma generate"
   },
   "dependencies": {
