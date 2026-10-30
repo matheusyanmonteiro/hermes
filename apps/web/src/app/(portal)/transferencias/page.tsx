@@ -1,0 +1,21 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { ArrowDownToLine, ArrowUpFromLine, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { EmptyState, ErrorState, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
+import { apiFetch, formatBytes, formatDate } from "@/lib/api";
+import type { Transfer } from "@/lib/types";
+
+interface TransferResponse { items: Transfer[]; pagination: { total: number } }
+
+export default function TransfersPage() {
+  const [type, setType] = useState("");
+  const [status, setStatus] = useState("");
+  const query = useQuery({ queryKey: ["transfers", type, status], queryFn: () => apiFetch<TransferResponse>(`/transfers?pageSize=100${type ? `&type=${type}` : ""}${status ? `&status=${status}` : ""}`), refetchInterval: 15_000 });
+  return <>
+    <PageHeader eyebrow="Fila e histórico" title="Transferências" description="Acompanhe uploads, downloads, progresso, confirmações e falhas registradas." actions={<button className="button secondary" onClick={() => query.refetch()}><RefreshCw size={16} /> Atualizar</button>} />
+    <div className="toolbar"><div className="toolbar-group"><select value={type} onChange={(event) => setType(event.target.value)}><option value="">Todos os tipos</option><option value="DOWNLOAD">Downloads</option><option value="UPLOAD">Uploads</option></select><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">Todos os status</option><option value="IN_PROGRESS">Em andamento</option><option value="COMPLETED_CLIENT">Concluídas</option><option value="FAILED">Falhas</option><option value="UNKNOWN">Sem confirmação</option></select></div><span className="muted" style={{ fontSize: 11 }}>{query.data?.pagination.total ?? 0} registros</span></div>
+    <article className="panel">{query.isLoading ? <LoadingState /> : query.error ? <ErrorState message={query.error instanceof Error ? query.error.message : "Falha ao consultar transferências"} /> : !query.data?.items.length ? <EmptyState title="Nenhuma transferência" description="Os uploads e downloads aparecerão aqui." /> : <div className="table-wrap"><table><thead><tr><th>Arquivo</th><th>Tipo</th><th>Usuário</th><th>Progresso</th><th>Status</th><th>Atualização</th></tr></thead><tbody>{query.data.items.map((transfer) => { const percent = Math.min(100, Math.round((Number(transfer.bytesTransferred) / Math.max(1, Number(transfer.fileSizeSnapshot))) * 100)); return <tr key={transfer.id}><td><div className="table-primary"><span className="file-icon">{transfer.batch.type === "UPLOAD" ? <ArrowUpFromLine size={17} /> : <ArrowDownToLine size={17} />}</span><div><strong>{transfer.fileNameSnapshot}</strong><small>{formatBytes(transfer.fileSizeSnapshot)} {transfer.errorMessage ? `· ${transfer.errorMessage}` : ""}</small></div></div></td><td><StatusBadge status={transfer.batch.type} /></td><td>{transfer.batch.user.name}</td><td style={{ minWidth: 140 }}><div className="progress-track"><span style={{ width: `${percent}%` }} /></div><small className="muted">{percent}%</small></td><td><StatusBadge status={transfer.status} /></td><td className="muted">{formatDate(transfer.updatedAt)}</td></tr>; })}</tbody></table></div>}</article>
+  </>;
+}
