@@ -1,0 +1,21 @@
+FROM node:24-alpine
+
+RUN apk add --no-cache libc6-compat openssl \
+  && corepack enable \
+  && corepack prepare pnpm@10.17.0 --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY apps/web/package.json apps/web/package.json
+COPY apps/api/package.json apps/api/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/database/package.json packages/database/package.json
+COPY packages/permissions/package.json packages/permissions/package.json
+
+RUN pnpm install --no-frozen-lockfile
+
+COPY . .
+
+EXPOSE 3000 3001
+

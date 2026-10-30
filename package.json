@@ -1,0 +1,36 @@
+{
+  "name": "hermes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portal seguro para distribuição e auditoria de mídias educacionais",
+  "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.17.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "db:generate": "pnpm --filter @hermes/database db:generate",
+    "db:migrate": "pnpm --filter @hermes/database db:migrate",
+    "db:migrate:deploy": "pnpm --filter @hermes/database db:migrate:deploy",
+    "db:seed": "pnpm --filter @hermes/database db:seed",
+    "db:studio": "pnpm --filter @hermes/database db:studio",
+    "docker:dev": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "eslint": "9.39.1",
+    "prettier": "3.6.2",
+    "turbo": "2.5.8",
+    "typescript": "6.0.3",
+    "vitest": "4.0.6"
+  }
+}
+

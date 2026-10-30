@@ -1,0 +1,28 @@
+# Dependências e builds
+node_modules/
+.pnpm-store/
+.turbo/
+.next/
+out/
+dist/
+coverage/
+
+# Variáveis e segredos
+.env
+.env.*
+!.env.example
+
+# Arquivos locais
+.DS_Store
+Thumbs.db
+*.log
+*.tsbuildinfo
+.idea/
+.vscode/
+
+# Contexto local de IA (não versionado por decisão do projeto)
+memory/
+
+# Prisma gerado
+packages/database/src/generated/
+
