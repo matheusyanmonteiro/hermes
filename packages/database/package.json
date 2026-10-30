@@ -11,8 +11,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "lint": "eslint src prisma --ext .ts",
-    "typecheck": "prisma generate && tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src/index.ts prisma/seed.ts prisma.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "postinstall": "prisma generate"
   },

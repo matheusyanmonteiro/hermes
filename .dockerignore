@@ -1,10 +1,17 @@
 .git
 .gitignore
 .next
+**/.next
 .turbo
+**/.turbo
 node_modules
 **/node_modules
 coverage
+**/coverage
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
 memory
 .env
 .env.*

@@ -16,7 +16,9 @@ No Windows, os comandos abaixo funcionam no PowerShell, Windows Terminal ou Git 
 3. Execute `docker compose up --build`.
 4. Acesse a Web em <http://localhost:3000> e a API em <http://localhost:3001/api/v1/health>.
 
-O Compose aguarda o PostgreSQL, aplica as migrations, executa a carga inicial idempotente e só então inicia as aplicações.
+No modo local, entre com `admin@hermes.local` e a senha definida em `DEV_LOGIN_PASSWORD` (`hermes-dev` no exemplo).
+
+O Compose aguarda o PostgreSQL, sincroniza as dependências nos volumes, aplica as migrations, executa a carga inicial idempotente e só então inicia as aplicações. Healthchecks impedem que a Web seja liberada antes de a API estar pronta.
 
 Para encerrar use `docker compose down`. Para apagar também o banco local use `docker compose down -v` (operação destrutiva).
 
@@ -47,7 +49,7 @@ memory               contexto local para IA (ignorado pelo Git)
 
 O modo `development` oferece contas locais sem depender de serviços externos. Ele é bloqueado em builds de produção. Em homologação/produção configure `AUTH_MODE=supabase` e as chaves publicáveis do Supabase. Segredos do Google e chaves de criptografia pertencem somente à API.
 
-Consulte [Arquitetura](docs/architecture/overview.md), [desenvolvimento no Windows](docs/operations/windows.md) e [variáveis de ambiente](docs/operations/environment.md).
+Consulte [Arquitetura](docs/architecture/overview.md), [desenvolvimento no Windows](docs/operations/windows.md), [variáveis de ambiente](docs/operations/environment.md), [configuração do Google Drive](docs/operations/google-drive.md) e [limites da auditoria](docs/security/transfer-auditing.md).
 
 ## Qualidade
 
