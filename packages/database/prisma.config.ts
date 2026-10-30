@@ -1,5 +1,11 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "prisma/config";
+
+// Prisma commands run from this package via `pnpm --filter`, while the shared
+// environment file is kept at the repository root.
+config({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../.env") });
 
 export default defineConfig({
   schema: "prisma/schema.prisma",

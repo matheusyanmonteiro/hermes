@@ -1,7 +1,11 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, TransferStatus, TransferType } from "../src/generated/client";
 import { PERMISSIONS, ROLE_TEMPLATES } from "@hermes/permissions";
+
+config({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../../.env") });
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL não foi configurada para o seed");
