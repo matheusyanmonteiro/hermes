@@ -6,6 +6,8 @@
 **/.turbo
 node_modules
 **/node_modules
+.pnpm-store
+**/.pnpm-store
 coverage
 **/coverage
 dist
