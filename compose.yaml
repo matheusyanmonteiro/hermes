@@ -6,6 +6,11 @@ x-source-volumes: &source-volumes
   - web_node_modules:/app/apps/web/node_modules
   - api_node_modules:/app/apps/api/node_modules
   - database_node_modules:/app/packages/database/node_modules
+  - contracts_node_modules:/app/packages/contracts/node_modules
+  - permissions_node_modules:/app/packages/permissions/node_modules
+  - api_next:/app/apps/api/.next
+  - web_next:/app/apps/web/.next
+  - turbo_cache:/app/.turbo
 
 services:
   db:
@@ -63,6 +68,8 @@ services:
       - web_node_modules:/app/apps/web/node_modules
       - api_node_modules:/app/apps/api/node_modules
       - database_node_modules:/app/packages/database/node_modules
+      - contracts_node_modules:/app/packages/contracts/node_modules
+      - permissions_node_modules:/app/packages/permissions/node_modules
       - pnpm_store:/pnpm/store
     restart: "no"
 
@@ -136,5 +143,10 @@ volumes:
   web_node_modules:
   api_node_modules:
   database_node_modules:
+  contracts_node_modules:
+  permissions_node_modules:
+  api_next:
+  web_next:
+  turbo_cache:
   pnpm_store:
 

@@ -19,5 +19,10 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
+RUN mkdir -p /pnpm/store /app/apps/api/.next /app/apps/web/.next /app/.turbo \
+  && chown -R node:node /app /pnpm
+
+USER node
+
 EXPOSE 3000 3001
 
