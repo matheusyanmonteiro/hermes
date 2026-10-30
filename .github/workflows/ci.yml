@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Qualidade (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  build:
+    name: Build integrado
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: hermes
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hermes -d hermes"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://hermes:hermes_ci@localhost:5432/hermes?schema=public
+      AUTH_MODE: development
+      DEV_AUTH_SECRET: chave-exclusiva-do-ci-com-mais-de-32-caracteres
+      DEV_LOGIN_PASSWORD: hermes-ci
+      WEB_URL: http://localhost:3000
+      API_URL: http://localhost:3001
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_AUTH_MODE: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate:deploy
+      - run: pnpm db:seed
+      - run: pnpm build
