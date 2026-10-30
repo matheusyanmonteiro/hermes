@@ -5,6 +5,7 @@ import { authenticate, requirePermission } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { driveFetch } from "@/lib/google-drive";
 import { apiRoute, json } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 type DriveFile = {
   id: string;
@@ -21,6 +22,7 @@ type DriveFile = {
 export const POST = apiRoute(async (request, context) => {
   const auth = await authenticate(request);
   requirePermission(auth, PERMISSIONS.DRIVE_MANAGE);
+  await enforceRateLimit(request, "drive.sync", auth.user.id, 10, 10 * 60);
   const { id } = await (context as { params: Promise<{ id: string }> }).params;
   const accountId = uuidSchema.parse(id);
   const account = await prisma.driveAccount.findUnique({ where: { id: accountId }, include: { folders: true } });

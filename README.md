@@ -49,7 +49,7 @@ memory               contexto local para IA (ignorado pelo Git)
 
 O modo `development` oferece contas locais sem depender de serviços externos. Ele é bloqueado em builds de produção. Em homologação/produção configure `AUTH_MODE=supabase` e as chaves publicáveis do Supabase. Segredos do Google e chaves de criptografia pertencem somente à API.
 
-Consulte [Arquitetura](docs/architecture/overview.md), [desenvolvimento no Windows](docs/operations/windows.md), [variáveis de ambiente](docs/operations/environment.md), [configuração do Google Drive](docs/operations/google-drive.md) e [limites da auditoria](docs/security/transfer-auditing.md).
+Consulte [Arquitetura](docs/architecture/overview.md), [desenvolvimento no Windows](docs/operations/windows.md), [variáveis de ambiente](docs/operations/environment.md), [configuração do Google Drive](docs/operations/google-drive.md), [limites da auditoria](docs/security/transfer-auditing.md) e [limitação de requisições](docs/security/rate-limiting.md).
 
 ## Qualidade
 
@@ -59,4 +59,6 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
+
+O workflow de CI repete lint, tipos e testes em Linux e Windows, além de validar migrations, carga inicial e build integrado com PostgreSQL 17.
 

@@ -313,3 +313,13 @@ model Campaign {
   @@index([status])
   @@map("campaigns")
 }
+
+model RateLimitBucket {
+  key         String   @id @db.VarChar(200)
+  count       Int      @default(1)
+  windowStart DateTime @map("window_start") @db.Timestamptz(3)
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
+}

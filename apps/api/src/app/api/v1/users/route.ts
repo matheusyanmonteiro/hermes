@@ -5,6 +5,7 @@ import { PERMISSIONS } from "@hermes/permissions";
 import { authenticate, requirePermission } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { apiRoute, correlationId, json, parseJson } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const GET = apiRoute(async (request) => {
   const auth = await authenticate(request);
@@ -20,6 +21,7 @@ export const GET = apiRoute(async (request) => {
 export const POST = apiRoute(async (request) => {
   const auth = await authenticate(request);
   requirePermission(auth, PERMISSIONS.USERS_MANAGE);
+  await enforceRateLimit(request, "users.invite", auth.user.id, 20, 60 * 60);
   const input = inviteUserSchema.parse(await parseJson(request));
   const roles = await prisma.role.findMany({ where: { id: { in: input.roleIds } } });
   if (roles.length !== new Set(input.roleIds).size) throw new ApiError(422, "ROLE_NOT_FOUND", "Um ou mais perfis não existem");

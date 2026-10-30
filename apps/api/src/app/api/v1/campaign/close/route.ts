@@ -4,10 +4,12 @@ import { authenticate, requirePermission } from "@/lib/auth";
 import { getCurrentCampaign } from "@/lib/campaign";
 import { ApiError } from "@/lib/errors";
 import { apiRoute, correlationId, json } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const POST = apiRoute(async (request) => {
   const auth = await authenticate(request);
   requirePermission(auth, PERMISSIONS.CAMPAIGN_MANAGE);
+  await enforceRateLimit(request, "campaign.close", auth.user.id, 5, 60);
   const current = await getCurrentCampaign();
   if (!current) throw new ApiError(404, "CAMPAIGN_NOT_FOUND", "Campanha não encontrada");
   const campaign = await prisma.campaign.update({ where: { id: current.id }, data: { status: "CLOSED", closedAt: new Date(), endsAt: new Date() } });

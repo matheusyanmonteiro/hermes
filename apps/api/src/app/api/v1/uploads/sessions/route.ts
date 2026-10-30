@@ -7,10 +7,12 @@ import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { ApiError } from "@/lib/errors";
 import { driveFetch } from "@/lib/google-drive";
 import { apiRoute, correlationId, json, parseJson } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const POST = apiRoute(async (request) => {
   const auth = await authenticate(request);
   requirePermission(auth, PERMISSIONS.UPLOADS_CREATE);
+  await enforceRateLimit(request, "uploads.sessions", auth.user.id, 20, 60);
   await requireActiveCampaign();
   const input = createUploadSessionsSchema.parse(await parseJson(request));
   const idempotencyKey = request.headers.get("idempotency-key")?.trim().slice(0, 120);

@@ -3,10 +3,12 @@ import { prisma } from "@hermes/database";
 import { authenticate } from "@/lib/auth";
 import { ApiError } from "@/lib/errors";
 import { apiRoute, correlationId, json, parseJson } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { assertTransferTransition, isFinalStatus } from "@/lib/transfer-state";
 
 export const POST = apiRoute(async (request, context) => {
   const auth = await authenticate(request);
+  await enforceRateLimit(request, "downloads.events", auth.user.id, 300, 60);
   const { id } = await (context as { params: Promise<{ id: string }> }).params;
   const transferId = uuidSchema.parse(id);
   const input = downloadEventSchema.parse(await parseJson(request));

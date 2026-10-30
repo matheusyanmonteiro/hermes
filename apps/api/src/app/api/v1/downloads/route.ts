@@ -5,10 +5,12 @@ import { authenticate, requirePermission } from "@/lib/auth";
 import { requireActiveCampaign } from "@/lib/campaign";
 import { ApiError } from "@/lib/errors";
 import { apiRoute, correlationId, json, parseJson } from "@/lib/http";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 export const POST = apiRoute(async (request) => {
   const auth = await authenticate(request);
   requirePermission(auth, PERMISSIONS.DOWNLOADS_CREATE);
+  await enforceRateLimit(request, "downloads.create", auth.user.id, 30, 60);
   await requireActiveCampaign();
   const input = createDownloadSchema.parse(await parseJson(request));
   const idempotencyKey = request.headers.get("idempotency-key")?.trim().slice(0, 120);
