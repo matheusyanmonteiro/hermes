@@ -57,6 +57,7 @@ model User {
   authId          String          @unique @map("auth_id")
   name            String          @db.VarChar(120)
   email           String          @unique @db.VarChar(254)
+  passwordHash    String?         @map("password_hash") @db.Text
   status          UserStatus      @default(INVITED)
   lastLoginAt     DateTime?       @map("last_login_at") @db.Timestamptz(3)
   deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(3)
@@ -133,6 +134,17 @@ model DriveAccount {
   transferBatches       TransferBatch[]
 
   @@map("drive_accounts")
+}
+
+model GoogleDriveConfiguration {
+  id                      String   @id @default("default") @db.VarChar(40)
+  clientId                String   @map("client_id") @db.VarChar(255)
+  clientSecretEncrypted   String   @map("client_secret_encrypted") @db.Text
+  redirectUri             String   @map("redirect_uri") @db.Text
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("google_drive_configurations")
 }
 
 model DriveFolder {
@@ -228,6 +240,7 @@ model Transfer {
   bytesTransferred          BigInt          @default(0) @map("bytes_transferred")
   attemptCount              Int             @default(0) @map("attempt_count")
   clientFileId              String?         @map("client_file_id") @db.VarChar(100)
+  tagIdsSnapshot            Json?           @map("tag_ids_snapshot")
   resumableSessionEncrypted String?         @map("resumable_session_encrypted") @db.Text
   errorCode                 String?         @map("error_code") @db.VarChar(80)
   errorMessage              String?         @map("error_message") @db.VarChar(500)

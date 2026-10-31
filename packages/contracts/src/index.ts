@@ -19,10 +19,27 @@ export const inviteUserSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: emailSchema,
   roleIds: z.array(uuidSchema).min(1).max(10),
+  password: z.string().min(8).max(200),
 });
 
 export const updateUserRolesSchema = z.object({
   roleIds: z.array(uuidSchema).min(1).max(10),
+});
+export const updateUserAccessSchema = z.object({ password: z.string().min(8).max(200).optional(), status: z.enum(["ACTIVE", "INACTIVE"]).optional() }).refine((value) => value.password || value.status, { message: "Informe uma alteração" });
+
+export const googleDriveConfigurationSchema = z.object({
+  clientId: z.string().trim().min(10).max(255),
+  clientSecret: z.string().trim().min(8).max(500),
+  redirectUri: z.url().max(500),
+});
+
+export const driveFolderSelectionSchema = z.object({
+  folderIds: z.array(z.string().min(1).max(255)).min(1).max(1000),
+});
+
+export const createDriveFolderSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  parentId: z.string().min(1).max(255).optional(),
 });
 
 export const videoListQuerySchema = paginationSchema.extend({
@@ -61,7 +78,8 @@ export const downloadEventSchema = z.object({
 
 export const createUploadSessionsSchema = z.object({
   accountId: uuidSchema,
-  folderId: uuidSchema.optional(),
+  folderId: uuidSchema,
+  tagIds: z.array(uuidSchema).max(10).default([]),
   files: z
     .array(
       z.object({
@@ -74,6 +92,9 @@ export const createUploadSessionsSchema = z.object({
     .min(1)
     .max(100),
 });
+
+export const createTagSchema = z.object({ name: z.string().trim().min(2).max(60), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#2563eb") });
+export const applyTagToVideosSchema = z.object({ videoIds: z.array(uuidSchema).min(1).max(100), tagId: uuidSchema });
 
 export const completeUploadSchema = z.object({
   driveFileId: z.string().min(1).max(255),

@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { randomBytes, scrypt } from "node:crypto";
+import { promisify } from "node:util";
 import { inviteUserSchema } from "@hermes/contracts";
 import { prisma } from "@hermes/database";
 import { PERMISSIONS } from "@hermes/permissions";
@@ -23,6 +25,8 @@ export const POST = apiRoute(async (request) => {
   requirePermission(auth, PERMISSIONS.USERS_MANAGE);
   await enforceRateLimit(request, "users.invite", auth.user.id, 20, 60 * 60);
   const input = inviteUserSchema.parse(await parseJson(request));
+  const salt = randomBytes(16).toString("hex");
+  const passwordHash = `${salt}:${Buffer.from(await promisify(scrypt)(input.password, salt, 64) as Buffer).toString("hex")}`;
   const roles = await prisma.role.findMany({ where: { id: { in: input.roleIds } } });
   if (roles.length !== new Set(input.roleIds).size) throw new ApiError(422, "ROLE_NOT_FOUND", "Um ou mais perfis não existem");
 
@@ -40,8 +44,8 @@ export const POST = apiRoute(async (request) => {
   const user = await prisma.$transaction(async (transaction) => {
     const created = await transaction.user.upsert({
       where: { email: input.email },
-      update: { name: input.name, authId, status: "INVITED", deletedAt: null },
-      create: { name: input.name, email: input.email, authId, status: "INVITED" },
+      update: { name: input.name, authId, passwordHash, status: process.env.AUTH_MODE === "supabase" ? "INVITED" : "ACTIVE", deletedAt: null },
+      create: { name: input.name, email: input.email, authId, passwordHash, status: process.env.AUTH_MODE === "supabase" ? "INVITED" : "ACTIVE" },
     });
     await transaction.userRole.deleteMany({ where: { userId: created.id } });
     await transaction.userRole.createMany({ data: input.roleIds.map((roleId) => ({ userId: created.id, roleId })) });

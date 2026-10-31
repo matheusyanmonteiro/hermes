@@ -8,7 +8,7 @@ export function proxy(request: NextRequest) {
       headers: {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Headers": "Authorization, Content-Type, Idempotency-Key, X-Correlation-Id",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type, Content-Range, Idempotency-Key, X-Correlation-Id",
         "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, DELETE, OPTIONS",
         Vary: "Origin",
       },

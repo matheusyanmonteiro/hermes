@@ -11,6 +11,8 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
+    "dev:api": "pnpm --filter @hermes/api dev",
+    "dev:web": "pnpm --filter @hermes/web dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

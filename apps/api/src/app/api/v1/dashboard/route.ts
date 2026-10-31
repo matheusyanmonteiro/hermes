@@ -11,11 +11,13 @@ export const GET = apiRoute(async (request) => {
   requirePermission(auth, PERMISSIONS.DASHBOARD_VIEW);
 
   const canViewAll = auth.permissions.includes(PERMISSIONS.TRANSFERS_VIEW_ALL);
+  const canManageDrive = auth.permissions.includes(PERMISSIONS.DRIVE_MANAGE);
+  const canViewUsers = auth.permissions.includes(PERMISSIONS.USERS_VIEW);
   const batchFilter = canViewAll ? {} : { userId: auth.user.id };
-  const [videoCount, userCount, driveAccounts, campaign, batches, recentTransfers, completedCount, failedCount] = await Promise.all([
+  const [videoCount, userCount, driveAccounts, campaign, batches, recentTransfers, completedCount, failedCount, activeCount] = await Promise.all([
     prisma.video.count({ where: { deletedAt: null } }),
-    prisma.user.count({ where: { deletedAt: null, status: "ACTIVE" } }),
-    prisma.driveAccount.findMany({ select: { id: true, email: true, displayName: true, status: true, lastSyncedAt: true } }),
+    canViewUsers ? prisma.user.count({ where: { deletedAt: null, status: "ACTIVE" } }) : Promise.resolve(null),
+    canManageDrive ? prisma.driveAccount.findMany({ select: { id: true, email: true, displayName: true, status: true, lastSyncedAt: true } }) : Promise.resolve([]),
     getCurrentCampaign(),
     prisma.transferBatch.count({ where: batchFilter }),
     prisma.transfer.findMany({
@@ -26,10 +28,13 @@ export const GET = apiRoute(async (request) => {
     }),
     prisma.transfer.count({ where: { batch: batchFilter, status: "COMPLETED_CLIENT" } }),
     prisma.transfer.count({ where: { batch: batchFilter, status: "FAILED" } }),
+    prisma.transfer.count({ where: { batch: batchFilter, status: { in: ["PENDING", "REQUESTED", "AUTHORIZED", "STARTED", "IN_PROGRESS"] } } }),
   ]);
 
   return json({
-    metrics: { videoCount, userCount, batchCount: batches, completedCount, failedCount },
+    audience: canViewUsers ? "ADMIN" : canViewAll ? "OPERATOR" : "READER",
+    capabilities: { canViewAll, canManageDrive, canViewUsers },
+    metrics: { videoCount, userCount, batchCount: batches, completedCount, failedCount, activeCount },
     campaign,
     driveAccounts,
     recentTransfers,

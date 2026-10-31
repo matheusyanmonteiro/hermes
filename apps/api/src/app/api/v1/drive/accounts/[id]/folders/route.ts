@@ -1,0 +1,17 @@
+import { createDriveFolderSchema, driveFolderSelectionSchema, uuidSchema } from "@hermes/contracts";
+import { prisma } from "@hermes/database";
+import { PERMISSIONS } from "@hermes/permissions";
+import { authenticate, requirePermission } from "@/lib/auth";
+import { ApiError } from "@/lib/errors";
+import { driveFetch } from "@/lib/google-drive";
+import { apiRoute, json, parseJson } from "@/lib/http";
+
+async function accountId(context: unknown) { const { id } = await (context as { params: Promise<{ id: string }> }).params; return uuidSchema.parse(id); }
+async function remoteFolders(id: string) {
+  const response = await driveFetch(id, "https://www.googleapis.com/drive/v3/files?" + new URLSearchParams({ q: "trashed = false and mimeType = 'application/vnd.google-apps.folder'", pageSize: "1000", fields: "files(id,name,parents)" }));
+  if (!response.ok) throw new ApiError(502, "DRIVE_FOLDERS_FAILED", "O Google Drive recusou a listagem de pastas", await response.text());
+  return ((await response.json()) as { files?: { id: string; name: string; parents?: string[] }[] }).files ?? [];
+}
+export const GET = apiRoute(async (request, context) => { const auth = await authenticate(request); requirePermission(auth, PERMISSIONS.DRIVE_MANAGE); const id = await accountId(context); const [folders, selected] = await Promise.all([remoteFolders(id), prisma.driveFolder.findMany({ where: { accountId: id, syncEnabled: true }, select: { driveFolderId: true } })]); return json({ items: folders.map((folder) => ({ ...folder, parentId: folder.parents?.[0] ?? null, selected: selected.some((item) => item.driveFolderId === folder.id) })) }); });
+export const PUT = apiRoute(async (request, context) => { const auth = await authenticate(request); requirePermission(auth, PERMISSIONS.DRIVE_MANAGE); const id = await accountId(context); const input = driveFolderSelectionSchema.parse(await parseJson(request)); const remote = await remoteFolders(id); const allowed = new Map(remote.map((folder) => [folder.id, folder])); if (input.folderIds.some((folderId) => !allowed.has(folderId))) throw new ApiError(422, "FOLDER_NOT_FOUND", "Uma pasta selecionada nÃ£o pertence a esta conta"); await prisma.$transaction([prisma.driveFolder.updateMany({ where: { accountId: id }, data: { syncEnabled: false } }), ...input.folderIds.map((folderId) => prisma.driveFolder.upsert({ where: { accountId_driveFolderId: { accountId: id, driveFolderId: folderId } }, update: { name: allowed.get(folderId)!.name, syncEnabled: true }, create: { accountId: id, driveFolderId: folderId, name: allowed.get(folderId)!.name, syncEnabled: true } }))]); return json({ selected: input.folderIds }); });
+export const POST = apiRoute(async (request, context) => { const auth = await authenticate(request); requirePermission(auth, PERMISSIONS.DRIVE_MANAGE); const id = await accountId(context); const input = createDriveFolderSchema.parse(await parseJson(request)); const body: Record<string, unknown> = { name: input.name, mimeType: "application/vnd.google-apps.folder" }; if (input.parentId) body.parents = [input.parentId]; const response = await driveFetch(id, "https://www.googleapis.com/drive/v3/files?fields=id,name,parents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); if (!response.ok) throw new ApiError(502, "DRIVE_FOLDER_CREATE_FAILED", "NÃ£o foi possÃ­vel criar a pasta no Google Drive", await response.text()); return json(await response.json(), { status: 201 }); });

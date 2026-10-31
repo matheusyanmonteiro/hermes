@@ -28,7 +28,6 @@ export const POST = apiRoute(async (request) => {
       .map((transfer) => ({
         transferId: transfer.id,
         clientId: transfer.clientFileId,
-        sessionUrl: decryptSecret(transfer.resumableSessionEncrypted!),
         chunkSizeBytes: Number(process.env.UPLOAD_CHUNK_SIZE_BYTES ?? 8_388_608),
       }));
     return json({ batchId: existing.id, sessions, idempotentReplay: true });
@@ -41,6 +40,8 @@ export const POST = apiRoute(async (request) => {
   if (!account) throw new ApiError(404, "DRIVE_ACCOUNT_NOT_FOUND", "Conta do Drive não encontrada");
   if (input.folderId && !folder) throw new ApiError(404, "DRIVE_FOLDER_NOT_FOUND", "Pasta do Drive não encontrada");
 
+  const tags = await prisma.tag.findMany({ where: { id: { in: input.tagIds } }, select: { id: true } });
+  if (tags.length !== new Set(input.tagIds).size) throw new ApiError(404, "TAG_NOT_FOUND", "Uma ou mais etiquetas não foram encontradas");
   const batch = await prisma.transferBatch.create({
     data: {
       userId: auth.user.id,
@@ -54,6 +55,7 @@ export const POST = apiRoute(async (request) => {
         create: input.files.map((file) => ({
           status: "PENDING",
           clientFileId: file.clientId,
+          tagIdsSnapshot: input.tagIds,
           fileNameSnapshot: file.name,
           fileSizeSnapshot: BigInt(file.sizeBytes),
           sourceSnapshot: account.email,
@@ -84,7 +86,6 @@ export const POST = apiRoute(async (request) => {
     sessions.push({
       transferId: transfer.id,
       clientId: transfer.clientFileId,
-      sessionUrl,
       chunkSizeBytes: Number(process.env.UPLOAD_CHUNK_SIZE_BYTES ?? 8_388_608),
     });
   }

@@ -10,5 +10,5 @@ export const POST = apiRoute(async (request) => {
   requirePermission(auth, PERMISSIONS.DRIVE_MANAGE);
   await enforceRateLimit(request, "drive.oauth", auth.user.id, 10, 60 * 60);
   const state = await createOauthState(auth.user.id);
-  return json({ authorizationUrl: googleAuthorizationUrl(state) });
+  return json({ authorizationUrl: await googleAuthorizationUrl(state) });
 });

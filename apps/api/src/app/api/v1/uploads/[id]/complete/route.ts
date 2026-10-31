@@ -14,11 +14,13 @@ export const POST = apiRoute(async (request, context) => {
   if (transfer.batch.userId !== auth.user.id) throw new ApiError(403, "PERMISSION_DENIED", "Esta transferência pertence a outro usuário");
   if (!transfer.batch.accountId) throw new ApiError(409, "TRANSFER_ACCOUNT_MISSING", "A transferência não possui uma conta de destino");
 
+  const tagIds = Array.isArray(transfer.tagIdsSnapshot) ? transfer.tagIdsSnapshot.filter((id): id is string => typeof id === "string") : [];
   const video = await prisma.video.upsert({
     where: { accountId_driveFileId: { accountId: transfer.batch.accountId, driveFileId: input.driveFileId } },
     update: { name: transfer.fileNameSnapshot, sizeBytes: transfer.fileSizeSnapshot, mimeType: transfer.mimeTypeSnapshot, checksum: input.checksum, deletedAt: null, driveModifiedAt: new Date() },
     create: { accountId: transfer.batch.accountId, driveFileId: input.driveFileId, name: transfer.fileNameSnapshot, sizeBytes: transfer.fileSizeSnapshot, mimeType: transfer.mimeTypeSnapshot, checksum: input.checksum, driveModifiedAt: new Date() },
   });
+  if (tagIds.length) await prisma.videoTag.createMany({ data: tagIds.map((tagId) => ({ videoId: video.id, tagId })), skipDuplicates: true });
   const updated = await prisma.transfer.update({ where: { id: transfer.id }, data: { videoId: video.id, status: "COMPLETED_CLIENT", bytesTransferred: transfer.fileSizeSnapshot, finishedAt: new Date(), resumableSessionEncrypted: null } });
   return json(updated);
 });

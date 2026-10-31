@@ -1,6 +1,7 @@
 import { uuidSchema } from "@hermes/contracts";
 import { prisma } from "@hermes/database";
 import { authenticate } from "@/lib/auth";
+import { requireActiveCampaign } from "@/lib/campaign";
 import { ApiError } from "@/lib/errors";
 import { driveFetch } from "@/lib/google-drive";
 import { apiRoute, correlationId } from "@/lib/http";
@@ -13,6 +14,7 @@ export const GET = apiRoute(async (request, context) => {
   if (transfer.batch.userId !== auth.user.id) throw new ApiError(403, "PERMISSION_DENIED", "Esta transferência pertence a outro usuário");
   if (!["AUTHORIZED", "STARTED", "IN_PROGRESS"].includes(transfer.status)) throw new ApiError(409, "TRANSFER_NOT_AVAILABLE", "Esta transferência não está disponível");
 
+  await requireActiveCampaign();
   const range = request.headers.get("range");
   const upstream = await driveFetch(transfer.video.accountId, `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(transfer.video.driveFileId)}?alt=media`, {
     headers: range ? { range } : undefined,

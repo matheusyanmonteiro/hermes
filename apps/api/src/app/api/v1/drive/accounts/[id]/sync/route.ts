@@ -28,6 +28,8 @@ export const POST = apiRoute(async (request, context) => {
   const account = await prisma.driveAccount.findUnique({ where: { id: accountId }, include: { folders: true } });
   if (!account) throw new ApiError(404, "DRIVE_ACCOUNT_NOT_FOUND", "Conta do Drive não encontrada");
 
+  const selectedFolders = account.folders.filter((folder) => folder.syncEnabled);
+  if (!selectedFolders.length) throw new ApiError(409, "DRIVE_FOLDERS_NOT_SELECTED", "Selecione ao menos uma pasta antes de sincronizar");
   const run = await prisma.syncRun.create({ data: { accountId, status: "RUNNING", startedAt: new Date() } });
   try {
     const seenIds: string[] = [];
@@ -36,7 +38,7 @@ export const POST = apiRoute(async (request, context) => {
     let updated = 0;
     do {
       const params = new URLSearchParams({
-        q: "trashed = false and mimeType contains 'video/'",
+        q: `trashed = false and mimeType contains 'video/' and (${selectedFolders.map((folder) => `'${folder.driveFolderId}' in parents`).join(" or ")})`,
         pageSize: "1000",
         fields: "nextPageToken,files(id,name,size,mimeType,modifiedTime,md5Checksum,thumbnailLink,parents,videoMediaMetadata(durationMillis))",
         spaces: "drive",

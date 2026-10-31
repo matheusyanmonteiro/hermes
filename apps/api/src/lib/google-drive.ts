@@ -4,18 +4,19 @@ import { ApiError } from "./errors";
 
 const tokenEndpoint = "https://oauth2.googleapis.com/token";
 
-function googleCredentials() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+async function googleCredentials() {
+  const configuration = await prisma.googleDriveConfiguration.findUnique({ where: { id: "default" } });
+  const clientId = configuration?.clientId;
+  const clientSecret = configuration ? decryptSecret(configuration.clientSecretEncrypted) : undefined;
+  const redirectUri = configuration?.redirectUri;
   if (!clientId || !clientSecret || !redirectUri) {
     throw new ApiError(503, "GOOGLE_NOT_CONFIGURED", "A integração com o Google Drive ainda não foi configurada");
   }
   return { clientId, clientSecret, redirectUri };
 }
 
-export function googleAuthorizationUrl(state: string): string {
-  const { clientId, redirectUri } = googleCredentials();
+export async function googleAuthorizationUrl(state: string): Promise<string> {
+  const { clientId, redirectUri } = await googleCredentials();
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -30,7 +31,7 @@ export function googleAuthorizationUrl(state: string): string {
 }
 
 export async function exchangeAuthorizationCode(code: string) {
-  const { clientId, clientSecret, redirectUri } = googleCredentials();
+  const { clientId, clientSecret, redirectUri } = await googleCredentials();
   const response = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -58,7 +59,7 @@ export async function getDriveAccessToken(accountId: string): Promise<string> {
   }
   if (!account.refreshTokenEncrypted) throw new ApiError(409, "DRIVE_RECONNECT_REQUIRED", "Reconecte a conta do Google Drive");
 
-  const { clientId, clientSecret } = googleCredentials();
+  const { clientId, clientSecret } = await googleCredentials();
   const response = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
