@@ -6,6 +6,8 @@ import { ApiError } from "@/lib/errors";
 import { driveFetch } from "@/lib/google-drive";
 import { apiRoute, correlationId } from "@/lib/http";
 
+export const maxDuration = 300;
+
 export const GET = apiRoute(async (request, context) => {
   const auth = await authenticate(request);
   const { id } = await (context as { params: Promise<{ id: string }> }).params;

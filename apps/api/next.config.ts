@@ -1,7 +1,9 @@
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
-process.loadEnvFile(fileURLToPath(new URL("../../.env", import.meta.url)));
+const rootEnvPath = fileURLToPath(new URL("../../.env", import.meta.url));
+if (existsSync(rootEnvPath)) process.loadEnvFile(rootEnvPath);
 
 const nextConfig: NextConfig = {
   output: "standalone",

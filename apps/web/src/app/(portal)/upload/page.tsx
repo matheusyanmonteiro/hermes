@@ -7,8 +7,19 @@ import { ErrorState, LoadingState, PageHeader, StatusBadge } from "@/components/
 import { apiFetch, formatBytes } from "@/lib/api";
 import type { DriveAccount } from "@/lib/types";
 type FileItem = { id: string; file: File; progress: number; status: "PENDING" | "IN_PROGRESS" | "COMPLETED_CLIENT" | "FAILED"; error?: string };
-type Session = { transferId: string; clientId: string; chunkSizeBytes: number };
-async function send(item: FileItem, session: Session, update: (p: number, s: FileItem["status"], e?: string) => void) { let offset = 0; let driveFileId: string | undefined; update(0, "IN_PROGRESS"); while (offset < item.file.size) { const end = Math.min(offset + session.chunkSizeBytes, item.file.size); const response = await apiFetch<{ complete: boolean; driveFileId?: string }>(`/uploads/${session.transferId}/chunk`, { method: "POST", headers: { "content-type": item.file.type || "application/octet-stream", "content-range": `bytes ${offset}-${end - 1}/${item.file.size}` }, body: item.file.slice(offset, end) }); offset = end; update(Math.round(offset / item.file.size * 100), "IN_PROGRESS"); if (response.complete) driveFileId = response.driveFileId; } if (!driveFileId) throw new Error("O Drive não confirmou o arquivo enviado"); await apiFetch(`/uploads/${session.transferId}/complete`, { method: "POST", body: JSON.stringify({ driveFileId }) }); update(100, "COMPLETED_CLIENT"); }
+type Session = { transferId: string; clientId: string; sessionUrl: string; chunkSizeBytes: number };
+async function send(item: FileItem, session: Session, update: (p: number, s: FileItem["status"], e?: string) => void) {
+ let offset = 0; let driveFileId: string | undefined; update(0, "IN_PROGRESS");
+ while (offset < item.file.size) {
+  const end = Math.min(offset + session.chunkSizeBytes, item.file.size);
+  const response = await fetch(session.sessionUrl, { method: "PUT", headers: { "content-type": item.file.type || "application/octet-stream", "content-range": `bytes ${offset}-${end - 1}/${item.file.size}` }, body: item.file.slice(offset, end) });
+  if (response.status !== 308 && !response.ok) throw new Error(`O Google Drive recusou o bloco (${response.status})`);
+  offset = end; update(Math.round(offset / item.file.size * 100), "IN_PROGRESS");
+  if (response.ok) { const payload = await response.json() as { id?: string }; driveFileId = payload.id; }
+ }
+ if (!driveFileId) throw new Error("O Drive não confirmou o arquivo enviado");
+ await apiFetch(`/uploads/${session.transferId}/complete`, { method: "POST", body: JSON.stringify({ driveFileId }) }); update(100, "COMPLETED_CLIENT");
+}
 export default function UploadPage() {
  const input = useRef<HTMLInputElement>(null); const qc = useQueryClient(); const [files, setFiles] = useState<FileItem[]>([]); const [accountId, setAccountId] = useState(""); const [folderId, setFolderId] = useState(""); const [tagId, setTagId] = useState(""); const [dragging, setDragging] = useState(false);
  const accounts = useQuery({ queryKey:["drive-accounts"], queryFn:()=>apiFetch<{items:DriveAccount[]}>("/drive/accounts") }); const folders = useQuery({ queryKey:["allowed-folders",accountId], enabled:!!accountId, queryFn:()=>apiFetch<{items:{id:string;name:string}[]}>(`/drive/accounts/${accountId}/allowed-folders`) }); const tags = useQuery({ queryKey:["tags"], queryFn:()=>apiFetch<{items:{id:string;name:string;color:string}[]}>("/tags") });

@@ -14,6 +14,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? "postgresql://hermes:hermes_local_change_me@localhost:5432/hermes?schema=public",
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? "postgresql://hermes:hermes_local_change_me@localhost:5432/hermes?schema=public",
   },
 });

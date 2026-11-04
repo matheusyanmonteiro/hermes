@@ -28,6 +28,7 @@ export const POST = apiRoute(async (request) => {
       .map((transfer) => ({
         transferId: transfer.id,
         clientId: transfer.clientFileId,
+        sessionUrl: decryptSecret(transfer.resumableSessionEncrypted!),
         chunkSizeBytes: Number(process.env.UPLOAD_CHUNK_SIZE_BYTES ?? 8_388_608),
       }));
     return json({ batchId: existing.id, sessions, idempotentReplay: true });
@@ -86,6 +87,7 @@ export const POST = apiRoute(async (request) => {
     sessions.push({
       transferId: transfer.id,
       clientId: transfer.clientFileId,
+      sessionUrl,
       chunkSizeBytes: Number(process.env.UPLOAD_CHUNK_SIZE_BYTES ?? 8_388_608),
     });
   }

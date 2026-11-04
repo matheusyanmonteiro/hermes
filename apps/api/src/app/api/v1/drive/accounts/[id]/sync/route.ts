@@ -19,6 +19,8 @@ type DriveFile = {
   videoMediaMetadata?: { durationMillis?: string };
 };
 
+export const maxDuration = 300;
+
 export const POST = apiRoute(async (request, context) => {
   const auth = await authenticate(request);
   requirePermission(auth, PERMISSIONS.DRIVE_MANAGE);
