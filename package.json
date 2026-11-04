@@ -20,6 +20,7 @@
     "db:generate": "pnpm --filter @hermes/database db:generate",
     "db:migrate": "pnpm --filter @hermes/database db:migrate",
     "db:migrate:deploy": "pnpm --filter @hermes/database db:migrate:deploy",
+    "db:bootstrap": "pnpm --filter @hermes/database db:bootstrap",
     "db:seed": "pnpm --filter @hermes/database db:seed",
     "db:studio": "pnpm --filter @hermes/database db:studio",
     "docker:dev": "docker compose up --build",
