@@ -26,7 +26,7 @@ Este documento explica como instalar o ambiente de desenvolvimento e como operar
 - Histórico de uploads e downloads por usuário e arquivo.
 - Exportação de relatórios em CSV e Excel.
 - Perfis `Administrador`, `Operador` e `Leitor`.
-- Autenticação local para desenvolvimento e Supabase Auth para ambientes reais.
+- Autenticação própria com senhas protegidas e sessão em cookie seguro; Supabase usado somente como PostgreSQL em produção.
 - Controle de campanha por data de início e encerramento.
 - Auditoria, idempotência, correlação de requisições e rate limiting persistente.
 - Interface responsiva para desktop, tablet e celular.
@@ -244,17 +244,18 @@ Abra **Transferências** para consultar uploads e downloads. É possível filtra
 
 A tela é atualizada automaticamente a cada 15 segundos e também possui atualização manual.
 
-### Convidar usuários
+### Criar usuários e redefinir senhas
 
-No modo Supabase, um Administrador pode:
+Um Administrador pode:
 
 1. abrir **Usuários**;
-2. clicar em **Convidar usuário**;
+2. clicar em **Novo usuário**;
 3. informar nome e e-mail;
 4. selecionar o perfil;
-5. enviar o convite.
+5. gerar ou informar uma senha temporária;
+6. copiar a senha antes de salvar e enviá-la à pessoa por um canal seguro.
 
-O Supabase envia o e-mail de ativação. No modo local, o cadastro fica registrado para testes, mas não há envio de e-mail nem definição individual de senha; as contas semeadas são a forma recomendada de testar os perfis.
+O Hermes não envia e-mail de ativação. A senha não volta a ser exibida depois do cadastro. Na mesma tela, o Administrador pode redefinir a senha ou inativar a conta; ambas as ações invalidam as sessões antigas do usuário.
 
 ### Consultar e exportar relatórios
 
@@ -505,7 +506,8 @@ O rate limiting detectou tentativas excessivas. Aguarde o número de segundos in
 
 O `compose.yaml` e o `Dockerfile.dev` são voltados ao desenvolvimento. Antes de publicar o Hermes:
 
-- use `AUTH_MODE=supabase` e configure o Supabase Auth;
+- use `AUTH_MODE=local`, configure um `AUTH_SECRET` exclusivo e mantenha a aplicação sob HTTPS;
+- aplique as migrations e execute `pnpm db:bootstrap` para criar o primeiro administrador com uma senha individual;
 - remova credenciais demonstrativas e não execute o seed local;
 - armazene segredos em um cofre da plataforma;
 - use HTTPS e um proxy reverso confiável;
@@ -516,7 +518,7 @@ O `compose.yaml` e o `Dockerfile.dev` são voltados ao desenvolvimento. Antes de
 - defina um processo de restauração testado;
 - revise permissões e usuários antes de abrir a campanha.
 
-O modo de autenticação `development` é recusado pela API quando `NODE_ENV=production`.
+O modo de autenticação `development` é recusado pela API quando `NODE_ENV=production`. Em produção, o Supabase fornece somente o PostgreSQL; o login e as sessões são controlados pelo Hermes.
 
 ## Estrutura do repositório
 
@@ -534,7 +536,7 @@ memory               contexto local para IA, ignorado pelo Git
 
 - [Arquitetura](docs/architecture/overview.md)
 - [Desenvolvimento no Windows](docs/operations/windows.md)
-- [Deploy na Vercel com Supabase](docs/operations/vercel.md)
+- [Deploy na Vercel com Supabase PostgreSQL](docs/operations/vercel.md)
 - [Variáveis de ambiente](docs/operations/environment.md)
 - [Configuração do Google Drive](docs/operations/google-drive.md)
 - [Auditoria de transferências](docs/security/transfer-auditing.md)

@@ -8,38 +8,38 @@ O Hermes usa Vercel Services para publicar as duas aplicações Next.js do monor
 
 A configuração está em `vercel.json`. A regra mais específica da API vem antes do catch-all do Web, e a API recebe o caminho original completo, como `/api/v1/health`.
 
-## 1. Preparar o Supabase
+## 1. Preparar o Supabase PostgreSQL
 
 No painel do Supabase:
 
 1. em **Project Settings > Database**, copie a conexão **Transaction pooler** para uso em runtime;
 2. copie também a conexão **Session pooler** ou a conexão direta para executar migrations;
-3. em **Authentication > Users**, crie o primeiro usuário administrador e copie o UUID dele;
-4. anote a URL do projeto, a chave publicável e a chave secreta em **Project Settings > API Keys**.
 
 Use a conexão Transaction pooler como `DATABASE_URL`. Ela normalmente usa a porta `6543`; mantenha `sslmode=require` e acrescente `pgbouncer=true` na query string. Use a conexão Session pooler ou direta como `DIRECT_URL` somente no terminal que executará migrations e bootstrap.
+
+O Hermes não usa o Supabase Auth nem as chaves da API do Supabase. Contas, hashes de senha, perfis e sessões pertencem à aplicação e ficam no PostgreSQL.
 
 Antes do primeiro deploy, em um clone confiável do repositório, execute:
 
 ```powershell
 $env:DIRECT_URL = "COLE_A_CONEXAO_SESSION_POOLER_OU_DIRETA"
-$env:BOOTSTRAP_ADMIN_AUTH_ID = "UUID_DO_USUARIO_DO_SUPABASE_AUTH"
 $env:BOOTSTRAP_ADMIN_EMAIL = "admin@seu-dominio.org.br"
 $env:BOOTSTRAP_ADMIN_NAME = "Nome do administrador"
+$env:BOOTSTRAP_ADMIN_PASSWORD = "UMA_SENHA_FORTE_COM_PELO_MENOS_12_CARACTERES"
 
 pnpm install --frozen-lockfile
 pnpm db:migrate:deploy
 pnpm db:bootstrap
 
 Remove-Item Env:DIRECT_URL
-Remove-Item Env:BOOTSTRAP_ADMIN_AUTH_ID
 Remove-Item Env:BOOTSTRAP_ADMIN_EMAIL
 Remove-Item Env:BOOTSTRAP_ADMIN_NAME
+Remove-Item Env:BOOTSTRAP_ADMIN_PASSWORD
 ```
 
 No Linux, macOS ou WSL, defina as mesmas variáveis com `export`, execute os comandos e depois remova-as com `unset`.
 
-`pnpm db:bootstrap` é idempotente: cria ou atualiza permissões, perfis e o primeiro administrador. Não execute `pnpm db:seed` em produção, pois o seed contém dados demonstrativos.
+`pnpm db:bootstrap` é idempotente: cria ou atualiza permissões, perfis e o primeiro administrador. Se for repetido, a senha informada substitui a anterior e as sessões antigas desse administrador são invalidadas. Não execute `pnpm db:seed` em produção, pois o seed contém dados demonstrativos.
 
 ## 2. Importar o projeto
 
@@ -62,16 +62,12 @@ Cadastre em **Settings > Environment Variables**, inicialmente para Production:
 | Variável | Valor |
 | --- | --- |
 | `DATABASE_URL` | URL do Transaction pooler do Supabase; tipo Secret |
-| `AUTH_MODE` | `supabase` |
-| `SUPABASE_URL` | URL do projeto Supabase |
-| `SUPABASE_PUBLISHABLE_KEY` | chave publicável do Supabase |
-| `SUPABASE_SECRET_KEY` | chave secreta do Supabase; tipo Secret |
+| `AUTH_MODE` | `local` |
+| `AUTH_SECRET` | segredo aleatório com pelo menos 32 caracteres; tipo Secret |
 | `WEB_URL` | domínio final, por exemplo `https://hermes.vercel.app` |
 | `API_URL` | o mesmo domínio final, sem `/api/v1` |
 | `NEXT_PUBLIC_API_URL` | `/api/v1` |
-| `NEXT_PUBLIC_AUTH_MODE` | `supabase` |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | chave publicável do Supabase |
+| `NEXT_PUBLIC_AUTH_MODE` | `local`; tipo Config, pois é incluída no navegador |
 | `TOKEN_ENCRYPTION_KEY` | chave Base64 de 32 bytes, exclusiva; tipo Secret |
 | `OAUTH_STATE_SECRET` | segredo aleatório com pelo menos 32 caracteres; tipo Secret |
 | `PORTAL_TIMEZONE` | `America/Sao_Paulo` |
@@ -81,9 +77,9 @@ Cadastre em **Settings > Environment Variables**, inicialmente para Production:
 
 Como Web e API compartilham a origem, `NEXT_PUBLIC_API_URL=/api/v1` funciona em Production, Preview e domínio próprio sem CORS entre os serviços.
 
-Não cadastre `DIRECT_URL`, `DEV_AUTH_SECRET`, `DEV_LOGIN_PASSWORD`, `POSTGRES_*` ou as variáveis `BOOTSTRAP_*` na Vercel. As credenciais Google também não ficam no ambiente: o administrador as informa de forma criptografada pelo portal.
+Não cadastre `DIRECT_URL`, `DEV_AUTH_SECRET`, `DEV_LOGIN_PASSWORD`, `POSTGRES_*` ou as variáveis `BOOTSTRAP_*` na Vercel. Também remova quaisquer variáveis antigas `SUPABASE_URL`, `SUPABASE_*_KEY` e `NEXT_PUBLIC_SUPABASE_*`: elas não são usadas. As credenciais Google também não ficam no ambiente; o administrador as informa de forma criptografada pelo portal.
 
-Variáveis `NEXT_PUBLIC_*` fazem parte do bundle do navegador. Nunca coloque nelas a chave secreta do Supabase ou qualquer outro segredo.
+Variáveis `NEXT_PUBLIC_*` fazem parte do bundle do navegador. Na Vercel, use visibilidade **Config** para elas; nunca configure uma variável pública como **Secret**.
 
 Para gerar os segredos operacionais:
 
@@ -92,7 +88,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
 ```
 
-Use uma saída diferente em cada variável e guarde uma cópia segura. Alterar `TOKEN_ENCRYPTION_KEY` depois de conectar contas Google torna os tokens armazenados indecifráveis e exige reconexão.
+Use a primeira saída em `TOKEN_ENCRYPTION_KEY`. Gere duas saídas independentes com o segundo comando para `AUTH_SECRET` e `OAUTH_STATE_SECRET`, e guarde cópias seguras. Alterar `AUTH_SECRET` encerra todas as sessões. Alterar `TOKEN_ENCRYPTION_KEY` depois de conectar contas Google torna os tokens armazenados indecifráveis e exige reconexão.
 
 ## 4. Fechar o domínio e publicar
 
@@ -100,9 +96,8 @@ Depois que a Vercel mostrar o domínio de produção:
 
 1. defina esse endereço completo em `WEB_URL` e `API_URL`;
 2. mantenha `NEXT_PUBLIC_API_URL=/api/v1`;
-3. faça **Redeploy** do projeto;
-4. no Supabase, configure **Authentication > URL Configuration > Site URL** com o domínio do Hermes;
-5. adicione o mesmo domínio à lista de Redirect URLs do Supabase.
+3. confira `AUTH_MODE=local` e `NEXT_PUBLIC_AUTH_MODE=local`;
+4. faça **Redeploy** do projeto.
 
 Para Preview, cadastre também as variáveis no ambiente Preview. O caminho relativo `/api/v1` acompanha automaticamente o domínio temporário do deploy.
 
@@ -131,7 +126,7 @@ No deploy, verifique nesta ordem:
 
 1. `/api/v1/health` responde com `status: ok` e `database: connected`;
 2. `/login` e `/dashboard` são entregues pelo serviço Web;
-3. o administrador criado no Supabase consegue entrar;
+3. o administrador criado pelo `pnpm db:bootstrap` consegue entrar;
 4. uma campanha ativa foi configurada;
 5. o OAuth Google retorna para `/api/v1/drive/oauth/callback`;
 6. sincronização, upload e download funcionam com arquivos reais;

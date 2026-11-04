@@ -3,9 +3,10 @@
 O Hermes aplica separação real entre interface e regras de negócio, mantendo contratos e políticas compartilhados no monorepo.
 
 ```text
-Navegador -> apps/web -> HTTPS -> apps/api -> PostgreSQL
-                                      |----> Supabase Auth
-                                      |----> Google Drive API
+Navegador -> apps/web -> HTTPS -> apps/api -> PostgreSQL (Supabase em produção)
+                  |            |       |----> Google Drive API
+                  |            |
+                  +-- cookie de sessão HttpOnly
 ```
 
 ## Limites de responsabilidade
@@ -20,12 +21,12 @@ O desenvolvimento usa PostgreSQL local em Docker. A mesma camada de persistênci
 
 ## Autenticação
 
-Há dois adaptadores explícitos:
+Há dois modos explícitos, ambos autenticados pelo próprio Hermes:
 
-- `development`: emite JWT curto assinado por um segredo exclusivamente local e vincula o `sub` a um usuário semeado.
-- `supabase`: valida o JWT do Supabase e usa o `sub` como `authId` do usuário interno.
+- `development`: permite que as contas semeadas usem a senha compartilhada de desenvolvimento e assina a sessão com `DEV_AUTH_SECRET`.
+- `local`: valida a senha individual armazenada como hash no PostgreSQL e assina a sessão com `AUTH_SECRET`; é o modo obrigatório em produção.
 
-O modo local existe para tornar o repositório executável sem credenciais. A API recusa esse modo quando `NODE_ENV=production`.
+Depois do login, a API grava um cookie de sessão `HttpOnly`, `Secure` em produção e `SameSite=Strict`. O navegador não recebe a senha armazenada nem mantém token em `localStorage`. Alterações de senha ou status invalidam as sessões anteriores. O modo `development` é recusado quando `NODE_ENV=production`.
 
 ## Datas e auditoria
 
