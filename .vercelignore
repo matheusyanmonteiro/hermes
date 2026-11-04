@@ -1,0 +1,14 @@
+.git/
+.vercel/
+.env
+.env.*
+!.env.example
+node_modules/
+.pnpm-store/
+.turbo/
+**/.next/
+**/.turbo/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+memory/

@@ -27,3 +27,4 @@ memory/
 # Prisma gerado
 packages/database/src/generated/
 
+.vercel/
