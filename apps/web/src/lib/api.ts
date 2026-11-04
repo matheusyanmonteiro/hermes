@@ -12,36 +12,18 @@ export class ApiClientError extends Error {
   }
 }
 
-export function storedToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem("hermes.accessToken");
-}
-
-export function saveToken(token: string): void {
-  window.localStorage.setItem("hermes.accessToken", token);
-}
-
-export function clearToken(): void {
-  window.localStorage.removeItem("hermes.accessToken");
-}
-
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = storedToken();
   const headers = new Headers(init.headers);
-  if (token) headers.set("authorization", `Bearer ${token}`);
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   headers.set("x-correlation-id", crypto.randomUUID());
 
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: "no-store" });
+  const response = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: "no-store", credentials: "include" });
   if (!response.ok) {
     let payload: { error?: { message?: string; code?: string; details?: unknown } } = {};
     try {
       payload = await response.json();
     } catch {
       // Respostas externas ou vazias não precisam ser JSON.
-    }
-    if (response.status === 401 && typeof window !== "undefined") {
-      clearToken();
     }
     throw new ApiClientError(payload.error?.message ?? "Não foi possível concluir a operação", response.status, payload.error?.code, payload.error?.details);
   }

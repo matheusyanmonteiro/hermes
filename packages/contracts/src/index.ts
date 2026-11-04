@@ -19,13 +19,13 @@ export const inviteUserSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: emailSchema,
   roleIds: z.array(uuidSchema).min(1).max(10),
-  password: z.string().min(8).max(200),
+  password: z.string().min(12).max(200),
 });
 
 export const updateUserRolesSchema = z.object({
   roleIds: z.array(uuidSchema).min(1).max(10),
 });
-export const updateUserAccessSchema = z.object({ password: z.string().min(8).max(200).optional(), status: z.enum(["ACTIVE", "INACTIVE"]).optional() }).refine((value) => value.password || value.status, { message: "Informe uma alteração" });
+export const updateUserAccessSchema = z.object({ password: z.string().min(12).max(200).optional(), status: z.enum(["ACTIVE", "INACTIVE"]).optional() }).refine((value) => value.password || value.status, { message: "Informe uma alteração" });
 
 export const googleDriveConfigurationSchema = z.object({
   clientId: z.string().trim().min(10).max(255),

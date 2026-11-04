@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, FileSpreadsheet, ShieldCheck, UserRound, Video, XCircle } from "lucide-react";
 import { useState } from "react";
 import { ErrorState, LoadingState, PageHeader, StatCard } from "@/components/ui";
-import { apiFetch, apiUrl, formatDate, storedToken } from "@/lib/api";
+import { apiFetch, apiUrl, formatDate } from "@/lib/api";
 
 interface ReportData {
   summary: { users: number; videos: number; requested: number; completed: number; failed: number; unknown: number };
@@ -18,7 +18,7 @@ export default function ReportsPage() {
   async function exportReport(format: "csv" | "xlsx") {
     setExporting(true);
     try {
-      const response = await fetch(apiUrl(`/reports/downloads/export?format=${format}`), { headers: { authorization: `Bearer ${storedToken()}` } });
+      const response = await fetch(apiUrl(`/reports/downloads/export?format=${format}`), { credentials: "include" });
       if (!response.ok) throw new Error("Não foi possível exportar o relatório");
       const blob = await response.blob(); const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `relatorio-downloads.${format}`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } finally { setExporting(false); }

@@ -14,7 +14,6 @@
     "@hermes/contracts": "workspace:*",
     "@hermes/database": "workspace:*",
     "@hermes/permissions": "workspace:*",
-    "@supabase/supabase-js": "2.118.0",
     "exceljs": "4.4.0",
     "jose": "6.2.14",
     "next": "16.4.3",

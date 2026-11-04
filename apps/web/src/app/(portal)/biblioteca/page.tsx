@@ -7,7 +7,7 @@ import { Suspense, useMemo, useRef, useState } from "react";
 import { EmptyState, ErrorState, LoadingState, PageHeader } from "@/components/ui";
 import { CustomSelect } from "@/components/controls";
 import { useAuth } from "@/features/auth/auth-context";
-import { apiFetch, apiUrl, formatBytes, formatDate, storedToken } from "@/lib/api";
+import { apiFetch, apiUrl, formatBytes, formatDate } from "@/lib/api";
 import type { Video } from "@/lib/types";
 import type { Campaign } from "@/lib/types";
 
@@ -16,7 +16,7 @@ interface DownloadBatch { batch: { id: string; transfers: { id: string; fileName
 type SaveHandle = { createWritable(): Promise<WritableStream> };
 
 async function receiveTransfer(transfer: DownloadBatch["batch"]["transfers"][number], handle?: SaveHandle) {
-  const response = await fetch(apiUrl(`/downloads/${transfer.id}/content`), { headers: { authorization: `Bearer ${storedToken()}` } });
+  const response = await fetch(apiUrl(`/downloads/${transfer.id}/content`), { credentials: "include" });
   if (!response.ok || !response.body) throw new Error(`Falha ao receber ${transfer.fileNameSnapshot}`);
   if (handle) {
     const writable = await handle.createWritable();

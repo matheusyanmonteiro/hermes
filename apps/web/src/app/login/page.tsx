@@ -14,9 +14,10 @@ function LoginForm() {
   const { currentUser, login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isDevelopment = process.env.NEXT_PUBLIC_AUTH_MODE === "development";
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "admin@hermes.local", password: "hermes-dev" },
+    defaultValues: isDevelopment ? { email: "admin@hermes.local", password: "hermes-dev" } : { email: "", password: "" },
   });
 
   useEffect(() => {
@@ -33,7 +34,6 @@ function LoginForm() {
     }
   }
 
-  const isDevelopment = process.env.NEXT_PUBLIC_AUTH_MODE !== "supabase";
   return (
     <main className="login-layout">
       <section className="login-story">

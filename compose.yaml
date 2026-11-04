@@ -84,14 +84,9 @@ services:
       WEB_URL: ${WEB_URL:-http://localhost:3000}
       API_URL: ${API_URL:-http://localhost:3001}
       AUTH_MODE: ${AUTH_MODE:-development}
+      AUTH_SECRET: ${AUTH_SECRET:-}
       DEV_AUTH_SECRET: ${DEV_AUTH_SECRET:-troque-esta-chave-local-por-uma-frase-com-32-caracteres}
       DEV_LOGIN_PASSWORD: ${DEV_LOGIN_PASSWORD:-hermes-dev}
-      SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
-      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY:-}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3001/api/v1/drive/oauth/callback}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
       OAUTH_STATE_SECRET: ${OAUTH_STATE_SECRET:-}
       PORTAL_TIMEZONE: ${PORTAL_TIMEZONE:-America/Sao_Paulo}
@@ -120,8 +115,6 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001/api/v1}
       NEXT_PUBLIC_AUTH_MODE: ${NEXT_PUBLIC_AUTH_MODE:-development}
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}
       WATCHPACK_POLLING: "true"
     ports:
       - "3000:3000"

@@ -1,8 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
 import { prisma, type UserStatus } from "@hermes/database";
 import { type PermissionCode } from "@hermes/permissions";
 import { jwtVerify, SignJWT } from "jose";
 import { ApiError } from "./errors";
+
+const SESSION_DURATION_SECONDS = 8 * 60 * 60;
+const SESSION_COOKIE_PRODUCTION = "__Host-hermes-session";
+const SESSION_COOKIE_DEVELOPMENT = "hermes-session";
 
 export interface AuthContext {
   user: {
@@ -16,57 +19,97 @@ export interface AuthContext {
   permissions: string[];
 }
 
-function bearerToken(request: Request): string {
-  const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) {
-    throw new ApiError(401, "AUTH_REQUIRED", "Autenticação obrigatória");
+function authMode(): "development" | "local" {
+  const mode = process.env.AUTH_MODE ?? "development";
+  if (mode !== "development" && mode !== "local") {
+    throw new ApiError(500, "AUTH_CONFIGURATION_ERROR", "AUTH_MODE deve ser development ou local");
   }
-  return header.slice(7);
+  if (process.env.NODE_ENV === "production" && mode !== "local") {
+    throw new ApiError(500, "UNSAFE_AUTH_MODE", "A produção exige AUTH_MODE=local");
+  }
+  return mode;
 }
 
-function developmentSecret(): Uint8Array {
-  const secret = process.env.DEV_AUTH_SECRET;
+function sessionSecret(): Uint8Array {
+  const mode = authMode();
+  const secret = mode === "local" ? process.env.AUTH_SECRET : process.env.DEV_AUTH_SECRET;
   if (!secret || secret.length < 32) {
-    throw new ApiError(500, "AUTH_CONFIGURATION_ERROR", "DEV_AUTH_SECRET deve ter pelo menos 32 caracteres");
+    throw new ApiError(500, "AUTH_CONFIGURATION_ERROR", `${mode === "local" ? "AUTH_SECRET" : "DEV_AUTH_SECRET"} deve ter pelo menos 32 caracteres`);
   }
   return new TextEncoder().encode(secret);
 }
 
-async function verifyDevelopmentToken(token: string): Promise<string> {
-  if (process.env.NODE_ENV === "production") {
-    throw new ApiError(500, "UNSAFE_AUTH_MODE", "O modo de autenticação local não pode ser usado em produção");
-  }
-  try {
-    const { payload } = await jwtVerify(token, developmentSecret(), {
-      issuer: "hermes-local",
-      audience: "hermes-api",
-    });
-    if (!payload.sub) throw new Error("Token sem subject");
-    return payload.sub;
-  } catch {
-    throw new ApiError(401, "INVALID_TOKEN", "Sessão inválida ou expirada");
-  }
+function cookieName(): string {
+  return process.env.NODE_ENV === "production" ? SESSION_COOKIE_PRODUCTION : SESSION_COOKIE_DEVELOPMENT;
 }
 
-async function verifySupabaseToken(token: string): Promise<string> {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) {
-    throw new ApiError(500, "AUTH_CONFIGURATION_ERROR", "Supabase Auth não foi configurado");
+function cookieValue(request: Request, name: string): string | undefined {
+  const header = request.headers.get("cookie");
+  if (!header) return undefined;
+  for (const item of header.split(";")) {
+    const separator = item.indexOf("=");
+    if (separator < 0) continue;
+    if (item.slice(0, separator).trim() === name) return decodeURIComponent(item.slice(separator + 1).trim());
   }
-  const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims?.sub) {
+  return undefined;
+}
+
+function requestToken(request: Request): string {
+  const fromCookie = cookieValue(request, cookieName());
+  if (fromCookie) return fromCookie;
+  const authorization = request.headers.get("authorization");
+  if (authorization?.startsWith("Bearer ")) return authorization.slice(7);
+  throw new ApiError(401, "AUTH_REQUIRED", "Autenticação obrigatória");
+}
+
+function sessionCookie(token: string, maxAge: number): string {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${cookieName()}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure}`;
+}
+
+export function attachSessionCookie(response: Response, token: string): Response {
+  response.headers.append("set-cookie", sessionCookie(token, SESSION_DURATION_SECONDS));
+  response.headers.set("cache-control", "private, no-store");
+  return response;
+}
+
+export function clearSessionCookie(response: Response): Response {
+  response.headers.append("set-cookie", sessionCookie("", 0));
+  response.headers.set("clear-site-data", '"cache"');
+  response.headers.set("cache-control", "private, no-store");
+  return response;
+}
+
+export async function createSessionToken(authId: string, sessionVersion: number): Promise<string> {
+  return new SignJWT({ sessionVersion })
+    .setProtectedHeader({ alg: "HS256" })
+    .setSubject(authId)
+    .setIssuer("hermes")
+    .setAudience("hermes-api")
+    .setIssuedAt()
+    .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
+    .sign(sessionSecret());
+}
+
+async function verifySessionToken(token: string): Promise<{ authId: string; sessionVersion: number }> {
+  try {
+    const { payload } = await jwtVerify(token, sessionSecret(), {
+      algorithms: ["HS256"],
+      issuer: "hermes",
+      audience: "hermes-api",
+    });
+    if (!payload.sub || !Number.isSafeInteger(payload.sessionVersion)) throw new Error("Sessão incompleta");
+    return { authId: payload.sub, sessionVersion: Number(payload.sessionVersion) };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new ApiError(401, "INVALID_TOKEN", "Sessão inválida ou expirada");
   }
-  return data.claims.sub;
 }
 
 export async function authenticate(request: Request): Promise<AuthContext> {
-  const token = bearerToken(request);
-  const authId = process.env.AUTH_MODE === "supabase" ? await verifySupabaseToken(token) : await verifyDevelopmentToken(token);
+  const session = await verifySessionToken(requestToken(request));
   const user = await prisma.user.findUnique({
-    where: { authId },
+    where: { authId: session.authId },
     include: {
       roles: {
         include: { role: { include: { permissions: { include: { permission: true } } } } },
@@ -75,10 +118,7 @@ export async function authenticate(request: Request): Promise<AuthContext> {
   });
 
   if (!user || user.deletedAt) throw new ApiError(401, "USER_NOT_FOUND", "Usuário não cadastrado no portal");
-  if (user.status === "INVITED" && process.env.AUTH_MODE === "supabase") {
-    user.status = "ACTIVE";
-    await prisma.user.update({ where: { id: user.id }, data: { status: "ACTIVE", lastLoginAt: new Date() } });
-  }
+  if (user.sessionVersion !== session.sessionVersion) throw new ApiError(401, "SESSION_REVOKED", "A sessão foi revogada; entre novamente");
   if (user.status !== "ACTIVE") throw new ApiError(403, "USER_INACTIVE", "Este usuário não está ativo");
 
   const roles = user.roles.map(({ role }) => role.code);
@@ -95,18 +135,4 @@ export function requirePermission(auth: AuthContext, permission: PermissionCode)
   if (!auth.permissions.includes(permission)) {
     throw new ApiError(403, "PERMISSION_DENIED", "Você não possui permissão para esta operação");
   }
-}
-
-export async function createDevelopmentToken(authId: string): Promise<string> {
-  if (process.env.NODE_ENV === "production" || process.env.AUTH_MODE === "supabase") {
-    throw new ApiError(404, "NOT_FOUND", "Recurso não encontrado");
-  }
-  return new SignJWT({ mode: "development" })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(authId)
-    .setIssuer("hermes-local")
-    .setAudience("hermes-api")
-    .setIssuedAt()
-    .setExpirationTime("8h")
-    .sign(developmentSecret());
 }

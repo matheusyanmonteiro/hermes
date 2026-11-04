@@ -12,12 +12,14 @@ export function GET() {
     },
     servers: [{ url: process.env.API_URL ?? "http://localhost:3001", description: "Ambiente atual" }],
     components: {
-      securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
+      securitySchemes: { sessionCookie: { type: "apiKey", in: "cookie", name: "__Host-hermes-session" } },
       headers: { CorrelationId: { description: "Identificador de rastreamento", schema: { type: "string", format: "uuid" } } },
     },
-    security: [{ bearerAuth: [] }],
+    security: [{ sessionCookie: [] }],
     paths: {
       "/api/v1/health": { get: { security: [], summary: "Saúde da API e banco", responses: { "200": { description: "Serviço saudável" } } } },
+      "/api/v1/auth/login": { post: { security: [], summary: "Inicia sessão local segura", responses: { "200": { description: "Cookie de sessão criado" }, "401": { description: "Credenciais inválidas" } } } },
+      "/api/v1/auth/logout": { post: { security: [], summary: "Encerra a sessão local", responses: { "204": { description: "Cookie de sessão removido" } } } },
       "/api/v1/auth/me": { get: { summary: "Usuário autenticado", responses: { "200": { description: "Identidade e permissões" }, "401": { description: "Não autenticado" } } } },
       "/api/v1/videos": { get: { summary: "Lista e filtra vídeos", responses: { "200": { description: "Página de vídeos" } } } },
       "/api/v1/downloads": { post: { summary: "Cria lote de download auditado", parameters: [{ in: "header", name: "Idempotency-Key", required: true, schema: { type: "string" } }], responses: { "201": { description: "Lote autorizado" } } } },
