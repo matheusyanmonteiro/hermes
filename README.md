@@ -491,7 +491,7 @@ docker compose up --build -d
 
 ### Conta Google desconectada
 
-Confira `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `TOKEN_ENCRYPTION_KEY` e `OAUTH_STATE_SECRET`. A URI deve ser idêntica à cadastrada no Google Cloud. Depois, conecte novamente a conta em **Contas Drive**.
+Confira a configuração OAuth salva em **Contas Drive**, além de `TOKEN_ENCRYPTION_KEY` e `OAUTH_STATE_SECRET`. A URI deve ser idêntica à cadastrada no Google Cloud. Depois, conecte novamente a conta.
 
 ### Download grande falha no navegador
 
@@ -534,6 +534,7 @@ memory               contexto local para IA, ignorado pelo Git
 
 - [Arquitetura](docs/architecture/overview.md)
 - [Desenvolvimento no Windows](docs/operations/windows.md)
+- [Deploy na Vercel com Supabase](docs/operations/vercel.md)
 - [Variáveis de ambiente](docs/operations/environment.md)
 - [Configuração do Google Drive](docs/operations/google-drive.md)
 - [Auditoria de transferências](docs/security/transfer-auditing.md)

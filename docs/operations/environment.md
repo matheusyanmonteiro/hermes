@@ -12,8 +12,15 @@ O arquivo `.env.example` documenta todas as chaves aceitas. Arquivos `.env` nunc
 
 - `AUTH_MODE=supabase`.
 - URLs e chaves publicáveis do Supabase.
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` e URI de retorno cadastrada.
+- `DATABASE_URL` com o Transaction pooler do Supabase para o runtime.
+- `DIRECT_URL` com a conexão direta ou Session pooler somente ao executar migrations e bootstrap.
+- `SUPABASE_SECRET_KEY` somente na API, para administração de usuários.
 - `TOKEN_ENCRYPTION_KEY`: chave aleatória de 32 bytes em Base64 para AES-256-GCM.
+- `OAUTH_STATE_SECRET`: segredo aleatório com pelo menos 32 caracteres.
+
+As credenciais OAuth Google e a URI de retorno são cadastradas pelo administrador na tela **Contas Drive** e ficam criptografadas no banco.
+
+Veja o inventário completo e os escopos por aplicação em [Deploy na Vercel](vercel.md).
 
 Nunca use segredos em variáveis iniciadas por `NEXT_PUBLIC_`; elas fazem parte do bundle do navegador.
 
