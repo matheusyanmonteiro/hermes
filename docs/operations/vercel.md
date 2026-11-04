@@ -1,8 +1,12 @@
 # Deploy do Hermes na Vercel
 
-O Hermes é um monorepo com duas aplicações Next.js. Na Vercel ele deve ser importado duas vezes, criando um projeto para a API e outro para a interface. Os dois projetos apontam para o mesmo repositório e usam diretórios raiz diferentes.
+O Hermes usa Vercel Services para publicar as duas aplicações Next.js do monorepo como um único projeto e domínio:
 
-Nenhum segredo deve ser salvo em `.env`, commit, captura de tela ou conversa. Cadastre os valores sensíveis como variáveis do tipo **Secret** na Vercel.
+- `web`: interface em `/`;
+- `api`: backend público em `/api/*`;
+- bindings internos: nenhum, pois as chamadas atuais partem do navegador para a API pública.
+
+A configuração está em `vercel.json`. A regra mais específica da API vem antes do catch-all do Web, e a API recebe o caminho original completo, como `/api/v1/health`.
 
 ## 1. Preparar o Supabase
 
@@ -13,7 +17,7 @@ No painel do Supabase:
 3. em **Authentication > Users**, crie o primeiro usuário administrador e copie o UUID dele;
 4. anote a URL do projeto, a chave publicável e a chave secreta em **Project Settings > API Keys**.
 
-Use a conexão Transaction pooler como `DATABASE_URL` da API. Ela normalmente usa a porta `6543`; mantenha `sslmode=require` e acrescente `pgbouncer=true` na query string. Use a conexão Session pooler ou direta como `DIRECT_URL` somente no terminal que executará migrations e bootstrap.
+Use a conexão Transaction pooler como `DATABASE_URL`. Ela normalmente usa a porta `6543`; mantenha `sslmode=require` e acrescente `pgbouncer=true` na query string. Use a conexão Session pooler ou direta como `DIRECT_URL` somente no terminal que executará migrations e bootstrap.
 
 Antes do primeiro deploy, em um clone confiável do repositório, execute:
 
@@ -33,24 +37,27 @@ Remove-Item Env:BOOTSTRAP_ADMIN_EMAIL
 Remove-Item Env:BOOTSTRAP_ADMIN_NAME
 ```
 
-No Linux, macOS ou WSL, defina as mesmas variáveis com `export`, execute os três comandos e depois remova-as com `unset`.
+No Linux, macOS ou WSL, defina as mesmas variáveis com `export`, execute os comandos e depois remova-as com `unset`.
 
 `pnpm db:bootstrap` é idempotente: cria ou atualiza permissões, perfis e o primeiro administrador. Não execute `pnpm db:seed` em produção, pois o seed contém dados demonstrativos.
 
-## 2. Criar o projeto da API
+## 2. Importar o projeto
 
 Na conta Vercel:
 
 1. clique em **Add New > Project**;
-2. importe o repositório `matheusyanmonteiro/hermes`;
-3. use um nome como `hermes-api`;
-4. em **Root Directory**, selecione `apps/api`;
-5. mantenha **Framework Preset: Next.js**;
-6. habilite a inclusão de arquivos externos ao Root Directory, pois a API usa os pacotes compartilhados do monorepo;
-7. em **Settings > General**, escolha Node.js `24.x`;
-8. não altere o Install Command nem o Build Command detectados pela Vercel.
+2. importe `matheusyanmonteiro/hermes`;
+3. mantenha a raiz do projeto na raiz do repositório; não selecione `apps/api` nem `apps/web`;
+4. selecione **Framework Preset: Services**, caso não seja detectado automaticamente;
+5. escolha Node.js `24.x`;
+6. mantenha os comandos de instalação e build detectados pela Vercel;
+7. confirme que o painel mostra os serviços `api` e `web`.
 
-Cadastre estas variáveis para **Production**:
+Os serviços são construídos separadamente, mas compartilham o deploy, o domínio e a configuração do projeto. A API é exposta somente pela rewrite `/api/(.*)`; o Web recebe as demais rotas.
+
+## 3. Variáveis de ambiente
+
+Cadastre em **Settings > Environment Variables**, inicialmente para Production:
 
 | Variável | Valor |
 | --- | --- |
@@ -59,8 +66,12 @@ Cadastre estas variáveis para **Production**:
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_PUBLISHABLE_KEY` | chave publicável do Supabase |
 | `SUPABASE_SECRET_KEY` | chave secreta do Supabase; tipo Secret |
-| `WEB_URL` | URL HTTPS exata do projeto Web |
-| `API_URL` | URL HTTPS exata deste projeto API |
+| `WEB_URL` | domínio final, por exemplo `https://hermes.vercel.app` |
+| `API_URL` | o mesmo domínio final, sem `/api/v1` |
+| `NEXT_PUBLIC_API_URL` | `/api/v1` |
+| `NEXT_PUBLIC_AUTH_MODE` | `supabase` |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | chave publicável do Supabase |
 | `TOKEN_ENCRYPTION_KEY` | chave Base64 de 32 bytes, exclusiva; tipo Secret |
 | `OAUTH_STATE_SECRET` | segredo aleatório com pelo menos 32 caracteres; tipo Secret |
 | `PORTAL_TIMEZONE` | `America/Sao_Paulo` |
@@ -68,50 +79,32 @@ Cadastre estas variáveis para **Production**:
 | `UPLOAD_CONCURRENCY` | `2` |
 | `DOWNLOAD_CONCURRENCY` | `3` |
 
-Não cadastre `DIRECT_URL`, `DEV_AUTH_SECRET`, `DEV_LOGIN_PASSWORD`, `POSTGRES_*` ou as variáveis `BOOTSTRAP_*` no projeto Vercel. As credenciais Google também não ficam no ambiente: o administrador as informa de forma criptografada pelo próprio portal.
+Como Web e API compartilham a origem, `NEXT_PUBLIC_API_URL=/api/v1` funciona em Production, Preview e domínio próprio sem CORS entre os serviços.
 
-Para gerar os dois segredos operacionais sem instalar ferramentas adicionais:
+Não cadastre `DIRECT_URL`, `DEV_AUTH_SECRET`, `DEV_LOGIN_PASSWORD`, `POSTGRES_*` ou as variáveis `BOOTSTRAP_*` na Vercel. As credenciais Google também não ficam no ambiente: o administrador as informa de forma criptografada pelo portal.
+
+Variáveis `NEXT_PUBLIC_*` fazem parte do bundle do navegador. Nunca coloque nelas a chave secreta do Supabase ou qualquer outro segredo.
+
+Para gerar os segredos operacionais:
 
 ```text
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
 ```
 
-Use uma saída diferente em cada variável e guarde uma cópia segura. Alterar `TOKEN_ENCRYPTION_KEY` depois de conectar contas Google torna os tokens já armazenados indecifráveis e exige reconexão.
+Use uma saída diferente em cada variável e guarde uma cópia segura. Alterar `TOKEN_ENCRYPTION_KEY` depois de conectar contas Google torna os tokens armazenados indecifráveis e exige reconexão.
 
-## 3. Criar o projeto Web
+## 4. Fechar o domínio e publicar
 
-Importe o mesmo repositório novamente:
+Depois que a Vercel mostrar o domínio de produção:
 
-1. use um nome como `hermes-web`;
-2. selecione `apps/web` como **Root Directory**;
-3. mantenha **Framework Preset: Next.js**;
-4. habilite a inclusão de arquivos externos ao Root Directory;
-5. selecione Node.js `24.x`;
-6. mantenha os comandos detectados automaticamente.
+1. defina esse endereço completo em `WEB_URL` e `API_URL`;
+2. mantenha `NEXT_PUBLIC_API_URL=/api/v1`;
+3. faça **Redeploy** do projeto;
+4. no Supabase, configure **Authentication > URL Configuration > Site URL** com o domínio do Hermes;
+5. adicione o mesmo domínio à lista de Redirect URLs do Supabase.
 
-Cadastre para **Production**:
-
-| Variável | Valor |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | `https://URL-DA-API/api/v1` |
-| `NEXT_PUBLIC_AUTH_MODE` | `supabase` |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL do projeto Supabase |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | chave publicável do Supabase |
-
-Variáveis `NEXT_PUBLIC_*` fazem parte do bundle do navegador; nunca coloque nelas a chave secreta do Supabase ou qualquer outro segredo.
-
-## 4. Fechar as URLs e publicar
-
-Em cada projeto, abra **Settings > Domains** e confirme o domínio de produção. Domínios próprios são recomendados porque não mudam entre deploys. Depois:
-
-1. corrija `WEB_URL` e `API_URL` na API com os domínios finais;
-2. corrija `NEXT_PUBLIC_API_URL` no Web;
-3. faça **Redeploy** dos dois projetos, começando pela API;
-4. no Supabase, configure **Authentication > URL Configuration > Site URL** com a URL do Web;
-5. adicione a URL do Web à lista de Redirect URLs do Supabase.
-
-A API aceita uma origem Web exata por segurança. Deploys de Preview possuem domínios variáveis e, por padrão, não acessam a API de produção. Para a primeira publicação, valide o ambiente Production.
+Para Preview, cadastre também as variáveis no ambiente Preview. O caminho relativo `/api/v1` acompanha automaticamente o domínio temporário do deploy.
 
 ## 5. Configurar o Google Drive
 
@@ -120,23 +113,28 @@ No Google Cloud:
 1. ative a Google Drive API;
 2. configure a tela de consentimento OAuth;
 3. crie um cliente OAuth do tipo **Web application**;
-4. cadastre como URI autorizada `https://URL-DA-API/api/v1/drive/oauth/callback`.
+4. cadastre `https://DOMINIO-DO-HERMES/api/v1/drive/oauth/callback` como URI autorizada.
 
-Depois entre no Hermes com o administrador, abra **Contas Drive**, informe o Client ID, Client Secret e a mesma URI de callback, salve e conecte a conta Google.
+Depois entre no Hermes como administrador, abra **Contas Drive**, informe Client ID e Client Secret e confirme a URI sugerida pelo portal. Esses dados ficam criptografados no banco.
 
 Os uploads grandes são enviados pelo navegador diretamente à sessão retomável do Google Drive, evitando o limite de corpo das Functions. Os downloads continuam em streaming pela API; faça uma prova de conceito com os maiores arquivos esperados antes de abrir a operação.
 
-## 6. Conferência final
+## 6. Desenvolvimento e conferência
 
-Verifique nesta ordem:
+O Docker Compose continua sendo o fluxo local principal. Para reproduzir especificamente o roteamento da Vercel Services, use:
 
-1. `https://URL-DA-API/api/v1/health` responde com `status: ok` e `database: connected`;
-2. a tela Web abre sem erro de CORS;
-3. o primeiro administrador entra com a conta criada no Supabase;
-4. uma campanha ativa foi configurada no portal;
-5. o OAuth Google retorna ao domínio da API;
-6. a sincronização lista um vídeo real;
-7. upload e download funcionam com um arquivo pequeno e depois com um arquivo grande;
-8. os relatórios e a auditoria registram as transferências.
+```text
+vercel dev --local
+```
 
-Quando uma variável for alterada, gere um novo deploy: variáveis da Vercel não modificam deploys que já foram construídos.
+No deploy, verifique nesta ordem:
+
+1. `/api/v1/health` responde com `status: ok` e `database: connected`;
+2. `/login` e `/dashboard` são entregues pelo serviço Web;
+3. o administrador criado no Supabase consegue entrar;
+4. uma campanha ativa foi configurada;
+5. o OAuth Google retorna para `/api/v1/drive/oauth/callback`;
+6. sincronização, upload e download funcionam com arquivos reais;
+7. relatórios e auditoria registram as transferências.
+
+Quando uma variável for alterada, gere um novo deploy: variáveis da Vercel não modificam builds já concluídos.
