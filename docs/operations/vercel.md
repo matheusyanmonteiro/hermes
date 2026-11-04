@@ -57,8 +57,6 @@ Os serviços são construídos separadamente, mas compartilham o deploy, o domí
 
 ## 3. Variáveis de ambiente
 
-O arquivo [`vercel.env.example`](../../vercel.env.example) pode ser usado como modelo para recriar as variáveis do projeto do zero. Preencha todos os marcadores `SUBSTITUA` antes de importar e confira a visibilidade indicada nos comentários.
-
 Cadastre em **Settings > Environment Variables**, inicialmente para Production:
 
 | Variável | Valor |
