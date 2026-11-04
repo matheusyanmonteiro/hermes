@@ -23,7 +23,7 @@ const permissionDescriptions: Record<string, string> = {
   [PERMISSIONS.DRIVE_VIEW]: "Visualizar contas do Google Drive",
   [PERMISSIONS.DRIVE_MANAGE]: "Conectar e sincronizar contas do Google Drive",
   [PERMISSIONS.USERS_VIEW]: "Visualizar usuários e perfis",
-  [PERMISSIONS.USERS_MANAGE]: "Convidar, bloquear e alterar perfis",
+  [PERMISSIONS.USERS_MANAGE]: "Criar usuários, redefinir senhas e alterar perfis",
   [PERMISSIONS.REPORTS_VIEW]: "Visualizar relatórios",
   [PERMISSIONS.REPORTS_EXPORT]: "Exportar relatórios",
   [PERMISSIONS.CAMPAIGN_VIEW]: "Visualizar o período operacional",

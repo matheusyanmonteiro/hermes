@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PERMISSIONS, ROLE_TEMPLATES } from "@hermes/permissions";
 import { PrismaClient } from "../src/generated/client";
+import { hashPassword } from "../src/password";
 
 config({ path: resolve(dirname(fileURLToPath(import.meta.url)), "../../../.env") });
 
@@ -13,18 +14,16 @@ function requiredEnvironment(name: string): string {
   return value;
 }
 
-const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DIRECT_URL ou DATABASE_URL deve ser configurada para o bootstrap de produção");
 
 const admin = {
-  authId: requiredEnvironment("BOOTSTRAP_ADMIN_AUTH_ID"),
   email: requiredEnvironment("BOOTSTRAP_ADMIN_EMAIL").toLowerCase(),
   name: requiredEnvironment("BOOTSTRAP_ADMIN_NAME"),
+  password: requiredEnvironment("BOOTSTRAP_ADMIN_PASSWORD"),
 };
 
-if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(admin.authId)) {
-  throw new Error("BOOTSTRAP_ADMIN_AUTH_ID deve ser o UUID do usuário criado no Supabase Auth");
-}
+if (admin.password.length < 12) throw new Error("BOOTSTRAP_ADMIN_PASSWORD deve ter pelo menos 12 caracteres");
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
@@ -39,7 +38,7 @@ const permissionDescriptions: Record<string, string> = {
   [PERMISSIONS.DRIVE_VIEW]: "Visualizar contas do Google Drive",
   [PERMISSIONS.DRIVE_MANAGE]: "Conectar e sincronizar contas do Google Drive",
   [PERMISSIONS.USERS_VIEW]: "Visualizar usuários e perfis",
-  [PERMISSIONS.USERS_MANAGE]: "Convidar, bloquear e alterar perfis",
+  [PERMISSIONS.USERS_MANAGE]: "Criar usuários, redefinir senhas e alterar perfis",
   [PERMISSIONS.REPORTS_VIEW]: "Visualizar relatórios",
   [PERMISSIONS.REPORTS_EXPORT]: "Exportar relatórios",
   [PERMISSIONS.CAMPAIGN_VIEW]: "Visualizar o período operacional",
@@ -54,6 +53,7 @@ const roleDefinitions = [
 ] as const;
 
 async function main() {
+  const passwordHash = await hashPassword(admin.password);
   const permissions = new Map<string, string>();
   for (const code of Object.values(PERMISSIONS)) {
     const permission = await prisma.permission.upsert({
@@ -80,10 +80,11 @@ async function main() {
     });
   }
 
+  const existingUser = await prisma.user.findUnique({ where: { email: admin.email } });
   const user = await prisma.user.upsert({
     where: { email: admin.email },
-    update: { authId: admin.authId, name: admin.name, status: "ACTIVE", deletedAt: null },
-    create: { ...admin, status: "ACTIVE" },
+    update: { name: admin.name, passwordHash, status: "ACTIVE", deletedAt: null, sessionVersion: { increment: 1 } },
+    create: { authId: `local-${crypto.randomUUID()}`, email: admin.email, name: admin.name, passwordHash, status: "ACTIVE" },
   });
   await prisma.userRole.upsert({
     where: { userId_roleId: { userId: user.id, roleId: adminRoleId } },
@@ -91,7 +92,7 @@ async function main() {
     create: { userId: user.id, roleId: adminRoleId },
   });
 
-  console.info(`Bootstrap concluído: ${admin.email} está ativo como administrador.`);
+  console.info(`Bootstrap concluído: ${admin.email} está ativo como administrador${existingUser ? " e teve a senha atualizada" : ""}.`);
 }
 
 main()

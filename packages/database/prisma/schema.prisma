@@ -58,6 +58,7 @@ model User {
   name            String          @db.VarChar(120)
   email           String          @unique @db.VarChar(254)
   passwordHash    String?         @map("password_hash") @db.Text
+  sessionVersion  Int             @default(0) @map("session_version")
   status          UserStatus      @default(INVITED)
   lastLoginAt     DateTime?       @map("last_login_at") @db.Timestamptz(3)
   deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(3)
