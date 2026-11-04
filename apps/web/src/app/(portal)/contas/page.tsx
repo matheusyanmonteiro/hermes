@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronDown, ChevronRight, Cloud, FolderPlus, KeyRound, Link2, RefreshCw, ShieldCheck, Video } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EmptyState, ErrorState, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, apiUrl } from "@/lib/api";
 import type { DriveAccount } from "@/lib/types";
 
 type Folder = { id: string; name: string; parentId: string | null; selected: boolean };
@@ -20,6 +20,10 @@ export default function AccountsPage() {
   const accounts = useQuery({ queryKey: ["drive-accounts"], queryFn: () => apiFetch<{ items: DriveAccount[] }>("/drive/accounts") });
   const configuration = useQuery({ queryKey: ["drive-configuration"], queryFn: () => apiFetch<Configuration>("/drive/configuration") });
   const folders = useQuery({ queryKey: ["drive-folders", activeAccount], enabled: Boolean(activeAccount), queryFn: () => apiFetch<{ items: Folder[] }>(`/drive/accounts/${activeAccount}/folders`) });
+  useEffect(() => {
+    const redirectUri = configuration.data?.redirectUri ?? new URL(apiUrl("/drive/oauth/callback"), window.location.origin).toString();
+    setCredentials((current) => current.redirectUri === redirectUri ? current : { ...current, redirectUri });
+  }, [configuration.data?.redirectUri]);
   const fail = (error: unknown) => setNotice({ text: error instanceof Error ? error.message : "Não foi possível concluir a operação.", error: true });
   const saveCredentials = useMutation({ mutationFn: () => apiFetch("/drive/configuration", { method: "PUT", body: JSON.stringify(credentials) }), onSuccess: () => { setNotice({ text: "Credenciais protegidas e salvas com sucesso." }); void configuration.refetch(); }, onError: fail });
   const connect = useMutation({ mutationFn: () => apiFetch<{ authorizationUrl: string }>("/drive/oauth/start", { method: "POST" }), onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl), onError: fail });
