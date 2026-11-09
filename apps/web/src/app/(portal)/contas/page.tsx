@@ -1,48 +1,523 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ChevronDown, ChevronRight, Cloud, FolderPlus, KeyRound, Link2, RefreshCw, ShieldCheck, Video } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Cloud,
+  FolderPlus,
+  KeyRound,
+  Link2,
+  Pencil,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  Video,
+} from "lucide-react";
 import { useEffect, useState } from "react";
-import { EmptyState, ErrorState, LoadingState, PageHeader, StatusBadge } from "@/components/ui";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  PageHeader,
+  StatusBadge,
+} from "@/components/ui";
 import { apiFetch, apiUrl } from "@/lib/api";
 import type { DriveAccount } from "@/lib/types";
 
-type Folder = { id: string; name: string; parentId: string | null; selected: boolean };
-type Configuration = { configured: boolean; clientId?: string; redirectUri?: string };
+type Folder = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  selected: boolean;
+};
+type Configuration = {
+  configured: boolean;
+  clientId?: string;
+  redirectUri?: string;
+};
 
 export default function AccountsPage() {
   const queryClient = useQueryClient();
-  const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
+  const [notice, setNotice] = useState<{
+    text: string;
+    error?: boolean;
+  } | null>(null);
   const [activeAccount, setActiveAccount] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [folderName, setFolderName] = useState("");
-  const [credentials, setCredentials] = useState({ clientId: "", clientSecret: "", redirectUri: "http://localhost:3001/api/v1/drive/oauth/callback" });
-  const accounts = useQuery({ queryKey: ["drive-accounts"], queryFn: () => apiFetch<{ items: DriveAccount[] }>("/drive/accounts") });
-  const configuration = useQuery({ queryKey: ["drive-configuration"], queryFn: () => apiFetch<Configuration>("/drive/configuration") });
-  const folders = useQuery({ queryKey: ["drive-folders", activeAccount], enabled: Boolean(activeAccount), queryFn: () => apiFetch<{ items: Folder[] }>(`/drive/accounts/${activeAccount}/folders`) });
+  const [credentials, setCredentials] = useState({
+    clientId: "",
+    clientSecret: "",
+    redirectUri: "http://localhost:3001/api/v1/drive/oauth/callback",
+  });
+  const accounts = useQuery({
+    queryKey: ["drive-accounts"],
+    queryFn: () => apiFetch<{ items: DriveAccount[] }>("/drive/accounts"),
+  });
+  const configuration = useQuery({
+    queryKey: ["drive-configuration"],
+    queryFn: () => apiFetch<Configuration>("/drive/configuration"),
+  });
+  const folders = useQuery({
+    queryKey: ["drive-folders", activeAccount],
+    enabled: Boolean(activeAccount),
+    queryFn: () =>
+      apiFetch<{ items: Folder[] }>(`/drive/accounts/${activeAccount}/folders`),
+  });
   useEffect(() => {
-    const redirectUri = configuration.data?.redirectUri ?? new URL(apiUrl("/drive/oauth/callback"), window.location.origin).toString();
-    setCredentials((current) => current.redirectUri === redirectUri ? current : { ...current, redirectUri });
+    const redirectUri =
+      configuration.data?.redirectUri ??
+      new URL(
+        apiUrl("/drive/oauth/callback"),
+        window.location.origin,
+      ).toString();
+    setCredentials((current) =>
+      current.redirectUri === redirectUri
+        ? current
+        : { ...current, redirectUri },
+    );
   }, [configuration.data?.redirectUri]);
-  const fail = (error: unknown) => setNotice({ text: error instanceof Error ? error.message : "Não foi possível concluir a operação.", error: true });
-  const saveCredentials = useMutation({ mutationFn: () => apiFetch("/drive/configuration", { method: "PUT", body: JSON.stringify(credentials) }), onSuccess: () => { setNotice({ text: "Credenciais protegidas e salvas com sucesso." }); void configuration.refetch(); }, onError: fail });
-  const connect = useMutation({ mutationFn: () => apiFetch<{ authorizationUrl: string }>("/drive/oauth/start", { method: "POST" }), onSuccess: ({ authorizationUrl }) => window.location.assign(authorizationUrl), onError: fail });
-  const sync = useMutation({ mutationFn: (id: string) => apiFetch(`/drive/accounts/${id}/sync`, { method: "POST" }), onSuccess: () => { setNotice({ text: "Sincronização iniciada com as pastas autorizadas." }); void queryClient.invalidateQueries({ queryKey: ["drive-accounts"] }); }, onError: fail });
-  const saveFolders = useMutation({ mutationFn: (items: Folder[]) => apiFetch(`/drive/accounts/${activeAccount}/folders`, { method: "PUT", body: JSON.stringify({ folderIds: items.filter((item) => item.selected).map((item) => item.id) }) }), onSuccess: () => { setNotice({ text: "Permissões de pasta atualizadas." }); void folders.refetch(); }, onError: fail });
-  const createFolder = useMutation({ mutationFn: () => apiFetch(`/drive/accounts/${activeAccount}/folders`, { method: "POST", body: JSON.stringify({ name: folderName }) }), onSuccess: () => { setFolderName(""); setNotice({ text: "Nova pasta criada no Google Drive." }); void folders.refetch(); }, onError: fail });
+  const fail = (error: unknown) =>
+    setNotice({
+      text:
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir a operação.",
+      error: true,
+    });
+  const saveCredentials = useMutation({
+    mutationFn: () =>
+      apiFetch("/drive/configuration", {
+        method: "PUT",
+        body: JSON.stringify(credentials),
+      }),
+    onSuccess: () => {
+      setNotice({ text: "Credenciais protegidas e salvas com sucesso." });
+      void configuration.refetch();
+    },
+    onError: fail,
+  });
+  const connect = useMutation({
+    mutationFn: () =>
+      apiFetch<{ authorizationUrl: string }>("/drive/oauth/start", {
+        method: "POST",
+      }),
+    onSuccess: ({ authorizationUrl }) =>
+      window.location.assign(authorizationUrl),
+    onError: fail,
+  });
+  const sync = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/drive/accounts/${id}/sync`, { method: "POST" }),
+    onSuccess: () => {
+      setNotice({ text: "Sincronização iniciada com as pastas autorizadas." });
+      void queryClient.invalidateQueries({ queryKey: ["drive-accounts"] });
+    },
+    onError: fail,
+  });
+  const saveFolders = useMutation({
+    mutationFn: (items: Folder[]) =>
+      apiFetch(`/drive/accounts/${activeAccount}/folders`, {
+        method: "PUT",
+        body: JSON.stringify({
+          folderIds: items
+            .filter((item) => item.selected)
+            .map((item) => item.id),
+        }),
+      }),
+    onSuccess: () => {
+      setNotice({ text: "Permissões de pasta atualizadas." });
+      void folders.refetch();
+    },
+    onError: fail,
+  });
+  const createFolder = useMutation({
+    mutationFn: () =>
+      apiFetch(`/drive/accounts/${activeAccount}/folders`, {
+        method: "POST",
+        body: JSON.stringify({ name: folderName }),
+      }),
+    onSuccess: () => {
+      setFolderName("");
+      setNotice({ text: "Nova pasta criada no Google Drive." });
+      void folders.refetch();
+    },
+    onError: fail,
+  });
+  const updateAccount = useMutation({
+    mutationFn: ({ id, displayName }: { id: string; displayName: string }) =>
+      apiFetch(`/drive/accounts/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ displayName }),
+      }),
+    onSuccess: () => {
+      setNotice({ text: "Nome da conta atualizado." });
+      void queryClient.invalidateQueries({ queryKey: ["drive-accounts"] });
+    },
+    onError: fail,
+  });
+  const deleteAccount = useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/drive/accounts/${id}`, { method: "DELETE" }),
+    onSuccess: (_data, id) => {
+      if (activeAccount === id) setActiveAccount(null);
+      setNotice({
+        text: "Conta removida. O histórico de auditoria foi preservado.",
+      });
+      void queryClient.invalidateQueries({ queryKey: ["drive-accounts"] });
+    },
+    onError: fail,
+  });
   const items = folders.data?.items ?? [];
-  const roots = items.filter((item) => !item.parentId || !items.some((parent) => parent.id === item.parentId));
+  const roots = items.filter(
+    (item) =>
+      !item.parentId || !items.some((parent) => parent.id === item.parentId),
+  );
   const selected = items.filter((item) => item.selected).length;
-  function FolderBranch({ folder, depth = 0 }: { folder: Folder; depth?: number }) {
-    const children = items.filter((item) => item.parentId === folder.id); const open = expanded.has(folder.id);
-    return <div className="drive-tree-branch" style={{ "--depth": depth } as React.CSSProperties}><div className="drive-tree-row"><button className="tree-toggle" onClick={() => setExpanded((current) => { const next = new Set(current); next.has(folder.id) ? next.delete(folder.id) : next.add(folder.id); return next; })} disabled={!children.length} aria-label={open ? "Recolher pasta" : "Expandir pasta"}>{children.length ? open ? <ChevronDown size={15} /> : <ChevronRight size={15} /> : <span />}</button><input id={`folder-${folder.id}`} type="checkbox" checked={folder.selected} onChange={(event) => saveFolders.mutate(items.map((item) => item.id === folder.id ? { ...item, selected: event.target.checked } : item))} /><label htmlFor={`folder-${folder.id}`}>{folder.name}</label>{folder.selected && <span className="tree-allowed">Permitida</span>}</div>{open && children.map((child) => <FolderBranch key={child.id} folder={child} depth={depth + 1} />)}</div>;
+  function FolderBranch({
+    folder,
+    depth = 0,
+  }: {
+    folder: Folder;
+    depth?: number;
+  }) {
+    const children = items.filter((item) => item.parentId === folder.id);
+    const open = expanded.has(folder.id);
+    return (
+      <div
+        className="drive-tree-branch"
+        style={{ "--depth": depth } as React.CSSProperties}
+      >
+        <div className="drive-tree-row">
+          <button
+            className="tree-toggle"
+            onClick={() =>
+              setExpanded((current) => {
+                const next = new Set(current);
+                next.has(folder.id)
+                  ? next.delete(folder.id)
+                  : next.add(folder.id);
+                return next;
+              })
+            }
+            disabled={!children.length}
+            aria-label={open ? "Recolher pasta" : "Expandir pasta"}
+          >
+            {children.length ? (
+              open ? (
+                <ChevronDown size={15} />
+              ) : (
+                <ChevronRight size={15} />
+              )
+            ) : (
+              <span />
+            )}
+          </button>
+          <input
+            id={`folder-${folder.id}`}
+            type="checkbox"
+            checked={folder.selected}
+            onChange={(event) =>
+              saveFolders.mutate(
+                items.map((item) =>
+                  item.id === folder.id
+                    ? { ...item, selected: event.target.checked }
+                    : item,
+                ),
+              )
+            }
+          />
+          <label htmlFor={`folder-${folder.id}`}>{folder.name}</label>
+          {folder.selected && <span className="tree-allowed">Permitida</span>}
+        </div>
+        {open &&
+          children.map((child) => (
+            <FolderBranch key={child.id} folder={child} depth={depth + 1} />
+          ))}
+      </div>
+    );
   }
-  return <>
-    <PageHeader eyebrow="Integrações" title="Google Drive" description="Conecte contas institucionais e defina, com precisão, quais pastas podem entrar no acervo." actions={<button className="button primary" onClick={() => connect.mutate()} disabled={!configuration.data?.configured || connect.isPending}><Link2 size={16} /> Conectar conta</button>} />
-    {notice && <div className={`form-alert ${notice.error ? "error" : ""}`}>{notice.text}</div>}
-    <div className="drive-steps" aria-label="Etapas da integração"><span className={configuration.data?.configured ? "done" : "active"}><b>1</b> Configurar OAuth</span><span className={accounts.data?.items.length ? "done" : ""}><b>2</b> Conectar conta</span><span className={activeAccount ? "active" : ""}><b>3</b> Autorizar pastas</span></div>
-    <section className="drive-config panel"><div className="drive-config-intro"><span className="drive-section-icon"><KeyRound size={20} /></span><div><h2>Credenciais da integração</h2><p>{configuration.data?.configured ? "Uma configuração OAuth já está ativa. Informe os dados novamente apenas para substituí-la." : "Cadastre o cliente OAuth do Google Cloud para liberar conexões."}</p></div>{configuration.data?.configured && <span className="config-state"><CheckCircle2 size={14} /> Configurada</span>}</div><div className="drive-config-form"><label>Client ID<input placeholder={configuration.data?.clientId ?? "Cole o Client ID do Google"} value={credentials.clientId} onChange={(event) => setCredentials({ ...credentials, clientId: event.target.value })} /></label><label>Client secret<input type="password" placeholder="Cole o Client secret" value={credentials.clientSecret} onChange={(event) => setCredentials({ ...credentials, clientSecret: event.target.value })} /></label><label className="callback-field">URI de redirecionamento<input value={credentials.redirectUri} onChange={(event) => setCredentials({ ...credentials, redirectUri: event.target.value })} /></label><button className="button secondary" onClick={() => saveCredentials.mutate()} disabled={!credentials.clientId || !credentials.clientSecret || saveCredentials.isPending}>{saveCredentials.isPending ? "Salvando…" : "Salvar configuração"}</button></div><div className="security-note"><ShieldCheck size={16} /><span>O segredo é criptografado no banco e nunca é devolvido pela API.</span></div></section>
-    <section className="drive-accounts-section"><div className="section-heading"><div><h2>Contas conectadas</h2><p>Escolha uma conta para gerir suas pastas ou sincronizar o acervo.</p></div><span>{accounts.data?.items.length ?? 0} conta{(accounts.data?.items.length ?? 0) === 1 ? "" : "s"}</span></div>{accounts.isLoading ? <LoadingState /> : accounts.error ? <ErrorState message="Não foi possível carregar as contas." /> : !accounts.data?.items.length ? <EmptyState title="Ainda não há contas conectadas" description="Depois de salvar as credenciais, conecte uma conta Google para escolher suas pastas." /> : <div className="cards-grid">{accounts.data.items.map((account) => <article className={`account-card panel ${activeAccount === account.id ? "selected" : ""}`} key={account.id}><div className="account-card-top"><span className="account-icon"><Cloud size={23} /></span><StatusBadge status={account.status} /></div><h2>{account.displayName || "Conta Google Drive"}</h2><p>{account.email}</p><div className="account-metrics"><span><Video size={15} /><strong>{account._count?.videos ?? 0}</strong><small>vídeos no acervo</small></span><span><Cloud size={15} /><strong>{account._count?.folders ?? 0}</strong><small>pastas liberadas</small></span></div>{account.lastError && <div className="form-alert error">{account.lastError}</div>}<footer><button className="button secondary" onClick={() => setActiveAccount(account.id)}>Gerenciar pastas</button><button className="button ghost" onClick={() => sync.mutate(account.id)} disabled={sync.isPending}><RefreshCw size={15} className={sync.isPending ? "spin" : ""} /> Sincronizar</button></footer></article>)}</div>}</section>
-    {activeAccount && <section className="folder-manager panel"><header><div><span className="eyebrow">Conta selecionada</span><h2>Pastas autorizadas</h2><p>Marque apenas as pastas que podem ser sincronizadas. {selected} selecionada{selected === 1 ? "" : "s"}.</p></div><button className="icon-button" onClick={() => setActiveAccount(null)} aria-label="Fechar gestão de pastas">×</button></header><div className="folder-create"><div><strong>Criar pasta no Drive</strong><span>Ela será criada na raiz da conta e aparecerá nesta lista.</span></div><input placeholder="Ex.: Formação 2026" value={folderName} onChange={(event) => setFolderName(event.target.value)} /><button className="button secondary" onClick={() => createFolder.mutate()} disabled={!folderName || createFolder.isPending}><FolderPlus size={16} /> Criar pasta</button></div><div className="drive-tree">{folders.isLoading ? <LoadingState label="Carregando estrutura de pastas" /> : roots.length ? roots.map((folder) => <FolderBranch key={folder.id} folder={folder} />) : <EmptyState title="Nenhuma pasta encontrada" description="Crie uma pasta ou confira as permissões da conta no Google Drive." />}</div></section>}
-  </>;
+  return (
+    <>
+      <PageHeader
+        eyebrow="Integrações"
+        title="Google Drive"
+        description="Conecte contas institucionais e defina, com precisão, quais pastas podem entrar no acervo."
+        actions={
+          <button
+            className="button primary"
+            onClick={() => connect.mutate()}
+            disabled={!configuration.data?.configured || connect.isPending}
+          >
+            <Link2 size={16} /> Conectar conta
+          </button>
+        }
+      />
+      {notice && (
+        <div className={`form-alert ${notice.error ? "error" : ""}`}>
+          {notice.text}
+        </div>
+      )}
+      <div className="drive-steps" aria-label="Etapas da integração">
+        <span className={configuration.data?.configured ? "done" : "active"}>
+          <b>1</b> Configurar OAuth
+        </span>
+        <span className={accounts.data?.items.length ? "done" : ""}>
+          <b>2</b> Conectar conta
+        </span>
+        <span className={activeAccount ? "active" : ""}>
+          <b>3</b> Autorizar pastas
+        </span>
+      </div>
+      <section className="drive-config panel">
+        <div className="drive-config-intro">
+          <span className="drive-section-icon">
+            <KeyRound size={20} />
+          </span>
+          <div>
+            <h2>Credenciais da integração</h2>
+            <p>
+              {configuration.data?.configured
+                ? "Uma configuração OAuth já está ativa. Informe os dados novamente apenas para substituí-la."
+                : "Cadastre o cliente OAuth do Google Cloud para liberar conexões."}
+            </p>
+          </div>
+          {configuration.data?.configured && (
+            <span className="config-state">
+              <CheckCircle2 size={14} /> Configurada
+            </span>
+          )}
+        </div>
+        <div className="drive-config-form">
+          <label>
+            Client ID
+            <input
+              placeholder={
+                configuration.data?.clientId ?? "Cole o Client ID do Google"
+              }
+              value={credentials.clientId}
+              onChange={(event) =>
+                setCredentials({ ...credentials, clientId: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Client secret
+            <input
+              type="password"
+              placeholder="Cole o Client secret"
+              value={credentials.clientSecret}
+              onChange={(event) =>
+                setCredentials({
+                  ...credentials,
+                  clientSecret: event.target.value,
+                })
+              }
+            />
+          </label>
+          <label className="callback-field">
+            URI de redirecionamento
+            <input
+              value={credentials.redirectUri}
+              onChange={(event) =>
+                setCredentials({
+                  ...credentials,
+                  redirectUri: event.target.value,
+                })
+              }
+            />
+          </label>
+          <button
+            className="button secondary"
+            onClick={() => saveCredentials.mutate()}
+            disabled={
+              !credentials.clientId ||
+              !credentials.clientSecret ||
+              saveCredentials.isPending
+            }
+          >
+            {saveCredentials.isPending ? "Salvando…" : "Salvar configuração"}
+          </button>
+        </div>
+        <div className="security-note">
+          <ShieldCheck size={16} />
+          <span>
+            O segredo é criptografado no banco e nunca é devolvido pela API.
+          </span>
+        </div>
+      </section>
+      <section className="drive-accounts-section">
+        <div className="section-heading">
+          <div>
+            <h2>Contas conectadas</h2>
+            <p>
+              Escolha uma conta para gerir suas pastas ou sincronizar o acervo.
+            </p>
+          </div>
+          <span>
+            {accounts.data?.items.length ?? 0} conta
+            {(accounts.data?.items.length ?? 0) === 1 ? "" : "s"}
+          </span>
+        </div>
+        {accounts.isLoading ? (
+          <LoadingState />
+        ) : accounts.error ? (
+          <ErrorState message="Não foi possível carregar as contas." />
+        ) : !accounts.data?.items.length ? (
+          <EmptyState
+            title="Ainda não há contas conectadas"
+            description="Depois de salvar as credenciais, conecte uma conta Google para escolher suas pastas."
+          />
+        ) : (
+          <div className="cards-grid">
+            {accounts.data.items.map((account) => (
+              <article
+                className={`account-card panel ${activeAccount === account.id ? "selected" : ""}`}
+                key={account.id}
+              >
+                <div className="account-card-top">
+                  <span className="account-icon">
+                    <Cloud size={23} />
+                  </span>
+                  <StatusBadge status={account.status} />
+                </div>
+                <h2>{account.displayName || "Conta Google Drive"}</h2>
+                <p>{account.email}</p>
+                <div className="account-metrics">
+                  <span>
+                    <Video size={15} />
+                    <strong>{account._count?.videos ?? 0}</strong>
+                    <small>vídeos no acervo</small>
+                  </span>
+                  <span>
+                    <Cloud size={15} />
+                    <strong>{account._count?.folders ?? 0}</strong>
+                    <small>pastas liberadas</small>
+                  </span>
+                </div>
+                {account.lastError && (
+                  <div className="form-alert error">
+                    {account.lastError}
+                    {account.status === "ERROR" &&
+                      " Reconecte a conta para renovar a autorização."}
+                  </div>
+                )}
+                <footer>
+                  <button
+                    className="button secondary"
+                    onClick={() => setActiveAccount(account.id)}
+                  >
+                    Gerenciar pastas
+                  </button>
+                  <button
+                    className="button ghost"
+                    onClick={() =>
+                      account.status === "ERROR"
+                        ? connect.mutate()
+                        : sync.mutate(account.id)
+                    }
+                    disabled={sync.isPending || connect.isPending}
+                  >
+                    <RefreshCw
+                      size={15}
+                      className={
+                        sync.isPending || connect.isPending ? "spin" : ""
+                      }
+                    />{" "}
+                    {account.status === "ERROR" ? "Reconectar" : "Sincronizar"}
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Editar nome da conta"
+                    onClick={() => {
+                      const displayName = window.prompt(
+                        "Nome para exibir esta conta",
+                        account.displayName ?? account.email,
+                      );
+                      if (displayName?.trim())
+                        updateAccount.mutate({
+                          id: account.id,
+                          displayName: displayName.trim(),
+                        });
+                    }}
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label="Excluir conta"
+                    disabled={deleteAccount.isPending}
+                    onClick={() => {
+                      const warning = `Excluir ${account.email}?\n\nIsso remove a autorização, ${account._count?.videos ?? 0} vídeo(s) do acervo e ${account._count?.folders ?? 0} pasta(s) cadastrada(s). Registros de auditoria e transferências serão preservados.`;
+                      if (window.confirm(warning))
+                        deleteAccount.mutate(account.id);
+                    }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </footer>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+      {activeAccount && (
+        <section className="folder-manager panel">
+          <header>
+            <div>
+              <span className="eyebrow">Conta selecionada</span>
+              <h2>Pastas autorizadas</h2>
+              <p>
+                Marque apenas as pastas que podem ser sincronizadas. {selected}{" "}
+                selecionada{selected === 1 ? "" : "s"}.
+              </p>
+            </div>
+            <button
+              className="icon-button"
+              onClick={() => setActiveAccount(null)}
+              aria-label="Fechar gestão de pastas"
+            >
+              ×
+            </button>
+          </header>
+          <div className="folder-create">
+            <div>
+              <strong>Criar pasta no Drive</strong>
+              <span>
+                Ela será criada na raiz da conta e aparecerá nesta lista.
+              </span>
+            </div>
+            <input
+              placeholder="Ex.: Formação 2026"
+              value={folderName}
+              onChange={(event) => setFolderName(event.target.value)}
+            />
+            <button
+              className="button secondary"
+              onClick={() => createFolder.mutate()}
+              disabled={!folderName || createFolder.isPending}
+            >
+              <FolderPlus size={16} /> Criar pasta
+            </button>
+          </div>
+          <div className="drive-tree">
+            {folders.isLoading ? (
+              <LoadingState label="Carregando estrutura de pastas" />
+            ) : roots.length ? (
+              roots.map((folder) => (
+                <FolderBranch key={folder.id} folder={folder} />
+              ))
+            ) : (
+              <EmptyState
+                title="Nenhuma pasta encontrada"
+                description="Crie uma pasta ou confira as permissões da conta no Google Drive."
+              />
+            )}
+          </div>
+        </section>
+      )}
+    </>
+  );
 }

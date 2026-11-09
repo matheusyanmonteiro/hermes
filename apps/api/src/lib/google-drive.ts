@@ -5,21 +5,33 @@ import { ApiError } from "./errors";
 const tokenEndpoint = "https://oauth2.googleapis.com/token";
 
 async function googleCredentials() {
-  const configuration = await prisma.googleDriveConfiguration.findUnique({ where: { id: "default" } });
+  const configuration = await prisma.googleDriveConfiguration.findUnique({
+    where: { id: "default" },
+  });
   const clientId = configuration?.clientId;
-  const clientSecret = configuration ? decryptSecret(configuration.clientSecretEncrypted) : undefined;
+  const clientSecret = configuration
+    ? decryptSecret(configuration.clientSecretEncrypted)
+    : undefined;
   const redirectUri = configuration?.redirectUri;
   if (!clientId || !clientSecret || !redirectUri) {
-    throw new ApiError(503, "GOOGLE_NOT_CONFIGURED", "A integração com o Google Drive ainda não foi configurada");
+    throw new ApiError(
+      503,
+      "GOOGLE_NOT_CONFIGURED",
+      "A integração com o Google Drive ainda não foi configurada",
+    );
   }
   return { clientId, clientSecret, redirectUri };
 }
 
-export async function googleAuthorizationUrl(state: string): Promise<string> {
-  const { clientId, redirectUri } = await googleCredentials();
+export async function googleAuthorizationUrl(
+  state: string,
+  redirectUri?: string,
+): Promise<string> {
+  const { clientId, redirectUri: configuredRedirectUri } =
+    await googleCredentials();
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri,
+    redirect_uri: redirectUri ?? configuredRedirectUri,
     response_type: "code",
     access_type: "offline",
     prompt: "consent",
@@ -30,34 +42,85 @@ export async function googleAuthorizationUrl(state: string): Promise<string> {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-export async function exchangeAuthorizationCode(code: string) {
-  const { clientId, clientSecret, redirectUri } = await googleCredentials();
+export async function exchangeAuthorizationCode(
+  code: string,
+  redirectUri?: string,
+) {
+  const {
+    clientId,
+    clientSecret,
+    redirectUri: configuredRedirectUri,
+  } = await googleCredentials();
   const response = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: "authorization_code" }),
+    body: new URLSearchParams({
+      code,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri ?? configuredRedirectUri,
+      grant_type: "authorization_code",
+    }),
   });
-  if (!response.ok) throw new ApiError(502, "GOOGLE_TOKEN_EXCHANGE_FAILED", "O Google não autorizou a conexão");
-  return (await response.json()) as { access_token: string; refresh_token?: string; expires_in: number };
+  if (!response.ok)
+    throw new ApiError(
+      502,
+      "GOOGLE_TOKEN_EXCHANGE_FAILED",
+      "O Google não autorizou a conexão",
+    );
+  return (await response.json()) as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+  };
 }
 
-export async function getGoogleProfile(accessToken: string): Promise<{ email: string; name?: string }> {
-  const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { authorization: `Bearer ${accessToken}` } });
-  if (!response.ok) throw new ApiError(502, "GOOGLE_PROFILE_FAILED", "Não foi possível identificar a conta Google");
+export async function getGoogleProfile(
+  accessToken: string,
+): Promise<{ email: string; name?: string }> {
+  const response = await fetch(
+    "https://openidconnect.googleapis.com/v1/userinfo",
+    { headers: { authorization: `Bearer ${accessToken}` } },
+  );
+  if (!response.ok)
+    throw new ApiError(
+      502,
+      "GOOGLE_PROFILE_FAILED",
+      "Não foi possível identificar a conta Google",
+    );
   const profile = (await response.json()) as { email?: string; name?: string };
-  if (!profile.email) throw new ApiError(502, "GOOGLE_PROFILE_FAILED", "A conta Google não informou um e-mail");
+  if (!profile.email)
+    throw new ApiError(
+      502,
+      "GOOGLE_PROFILE_FAILED",
+      "A conta Google não informou um e-mail",
+    );
   return { email: profile.email.toLowerCase(), name: profile.name };
 }
 
 export async function getDriveAccessToken(accountId: string): Promise<string> {
-  const account = await prisma.driveAccount.findUnique({ where: { id: accountId } });
+  const account = await prisma.driveAccount.findUnique({
+    where: { id: accountId },
+  });
   if (!account || account.status !== "CONNECTED" || !account.tokenEncrypted) {
-    throw new ApiError(409, "DRIVE_ACCOUNT_DISCONNECTED", "A conta do Google Drive não está conectada");
+    throw new ApiError(
+      409,
+      "DRIVE_ACCOUNT_DISCONNECTED",
+      "A conta do Google Drive não está conectada",
+    );
   }
-  if (account.tokenExpiresAt && account.tokenExpiresAt.getTime() > Date.now() + 60_000) {
+  if (
+    account.tokenExpiresAt &&
+    account.tokenExpiresAt.getTime() > Date.now() + 60_000
+  ) {
     return decryptSecret(account.tokenEncrypted);
   }
-  if (!account.refreshTokenEncrypted) throw new ApiError(409, "DRIVE_RECONNECT_REQUIRED", "Reconecte a conta do Google Drive");
+  if (!account.refreshTokenEncrypted)
+    throw new ApiError(
+      409,
+      "DRIVE_RECONNECT_REQUIRED",
+      "Reconecte a conta do Google Drive",
+    );
 
   const { clientId, clientSecret } = await googleCredentials();
   const response = await fetch(tokenEndpoint, {
@@ -71,18 +134,37 @@ export async function getDriveAccessToken(accountId: string): Promise<string> {
     }),
   });
   if (!response.ok) {
-    await prisma.driveAccount.update({ where: { id: accountId }, data: { status: "ERROR", lastError: "Falha ao renovar a autorização" } });
-    throw new ApiError(409, "DRIVE_RECONNECT_REQUIRED", "A autorização expirou; reconecte a conta");
+    await prisma.driveAccount.update({
+      where: { id: accountId },
+      data: { status: "ERROR", lastError: "Falha ao renovar a autorização" },
+    });
+    throw new ApiError(
+      409,
+      "DRIVE_RECONNECT_REQUIRED",
+      "A autorização expirou; reconecte a conta",
+    );
   }
-  const token = (await response.json()) as { access_token: string; expires_in: number };
+  const token = (await response.json()) as {
+    access_token: string;
+    expires_in: number;
+  };
   await prisma.driveAccount.update({
     where: { id: accountId },
-    data: { tokenEncrypted: encryptSecret(token.access_token), tokenExpiresAt: new Date(Date.now() + token.expires_in * 1000), status: "CONNECTED", lastError: null },
+    data: {
+      tokenEncrypted: encryptSecret(token.access_token),
+      tokenExpiresAt: new Date(Date.now() + token.expires_in * 1000),
+      status: "CONNECTED",
+      lastError: null,
+    },
   });
   return token.access_token;
 }
 
-export async function driveFetch(accountId: string, url: string, init: RequestInit = {}): Promise<Response> {
+export async function driveFetch(
+  accountId: string,
+  url: string,
+  init: RequestInit = {},
+): Promise<Response> {
   const token = await getDriveAccessToken(accountId);
   const headers = new Headers(init.headers);
   headers.set("authorization", `Bearer ${token}`);

@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 export const uuidSchema = z.uuid();
-export const emailSchema = z.email().max(254).transform((value) => value.toLowerCase());
+export const emailSchema = z
+  .email()
+  .max(254)
+  .transform((value) => value.toLowerCase());
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -13,7 +16,12 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
-export const userStatusSchema = z.enum(["ACTIVE", "INACTIVE", "BLOCKED", "INVITED"]);
+export const userStatusSchema = z.enum([
+  "ACTIVE",
+  "INACTIVE",
+  "BLOCKED",
+  "INVITED",
+]);
 
 export const inviteUserSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -25,7 +33,14 @@ export const inviteUserSchema = z.object({
 export const updateUserRolesSchema = z.object({
   roleIds: z.array(uuidSchema).min(1).max(10),
 });
-export const updateUserAccessSchema = z.object({ password: z.string().min(12).max(200).optional(), status: z.enum(["ACTIVE", "INACTIVE"]).optional() }).refine((value) => value.password || value.status, { message: "Informe uma alteração" });
+export const updateUserAccessSchema = z
+  .object({
+    password: z.string().min(12).max(200).optional(),
+    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+  })
+  .refine((value) => value.password || value.status, {
+    message: "Informe uma alteração",
+  });
 
 export const googleDriveConfigurationSchema = z.object({
   clientId: z.string().trim().min(10).max(255),
@@ -42,12 +57,18 @@ export const createDriveFolderSchema = z.object({
   parentId: z.string().min(1).max(255).optional(),
 });
 
+export const updateDriveAccountSchema = z.object({
+  displayName: z.string().trim().min(1).max(120),
+});
+
 export const videoListQuerySchema = paginationSchema.extend({
   search: z.string().trim().max(120).optional(),
   accountId: uuidSchema.optional(),
   folderId: uuidSchema.optional(),
   tag: z.string().trim().max(60).optional(),
-  sort: z.enum(["name", "size", "modifiedAt", "createdAt"]).default("modifiedAt"),
+  sort: z
+    .enum(["name", "size", "modifiedAt", "createdAt"])
+    .default("modifiedAt"),
   order: z.enum(["asc", "desc"]).default("desc"),
 });
 
@@ -69,7 +90,14 @@ export const createDownloadSchema = z.object({
 });
 
 export const downloadEventSchema = z.object({
-  eventType: z.enum(["STARTED", "PROGRESS", "COMPLETED_CLIENT", "FAILED", "CANCELLED", "UNKNOWN"]),
+  eventType: z.enum([
+    "STARTED",
+    "PROGRESS",
+    "COMPLETED_CLIENT",
+    "FAILED",
+    "CANCELLED",
+    "UNKNOWN",
+  ]),
   bytesTransferred: z.number().int().nonnegative().optional(),
   errorCode: z.string().trim().max(80).optional(),
   errorMessage: z.string().trim().max(500).optional(),
@@ -93,8 +121,17 @@ export const createUploadSessionsSchema = z.object({
     .max(100),
 });
 
-export const createTagSchema = z.object({ name: z.string().trim().min(2).max(60), color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#2563eb") });
-export const applyTagToVideosSchema = z.object({ videoIds: z.array(uuidSchema).min(1).max(100), tagId: uuidSchema });
+export const createTagSchema = z.object({
+  name: z.string().trim().min(2).max(60),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .default("#2563eb"),
+});
+export const applyTagToVideosSchema = z.object({
+  videoIds: z.array(uuidSchema).min(1).max(100),
+  tagId: uuidSchema,
+});
 
 export const completeUploadSchema = z.object({
   driveFileId: z.string().min(1).max(255),
@@ -141,5 +178,7 @@ export type InviteUserInput = z.infer<typeof inviteUserSchema>;
 export type VideoListQuery = z.infer<typeof videoListQuerySchema>;
 export type CreateDownloadInput = z.infer<typeof createDownloadSchema>;
 export type DownloadEventInput = z.infer<typeof downloadEventSchema>;
-export type CreateUploadSessionsInput = z.infer<typeof createUploadSessionsSchema>;
+export type CreateUploadSessionsInput = z.infer<
+  typeof createUploadSessionsSchema
+>;
 export type TransferStatus = z.infer<typeof transferStatusSchema>;

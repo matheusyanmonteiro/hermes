@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
   transpilePackages: ["@hermes/contracts", "@hermes/permissions"],
   poweredByHeader: false,
+  async rewrites() {
+    if (process.env.NODE_ENV === "production") return [];
+
+    const apiUrl = process.env.API_URL ?? "http://localhost:3001";
+    return [{ source: "/api/v1/:path*", destination: `${apiUrl}/api/v1/:path*` }];
+  },
 };
 
 export default nextConfig;

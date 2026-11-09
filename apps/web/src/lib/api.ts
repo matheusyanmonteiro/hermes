@@ -1,4 +1,7 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:3001/api/v1");
+// Keep browser requests on the portal origin. In development Next rewrites this
+// path to the API server, which lets the session cookie work when the portal is
+// opened through localhost, 127.0.0.1, or a LAN address.
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 export class ApiClientError extends Error {
   constructor(
